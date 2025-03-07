@@ -1,1 +1,6 @@
 # Sentry
+
+Installation:
+
+poetry install
+
