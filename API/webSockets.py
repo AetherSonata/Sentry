@@ -97,6 +97,8 @@ if __name__ == "__main__":
             webhook_id = webhook.get("webhookID")
             delete_webhook(webhook_id)
 
+    start_ngrok_webhook()
+
     # Create a new webhook for the provided token address
     if token_address:
         result = create_helius_webhook(token_address)
