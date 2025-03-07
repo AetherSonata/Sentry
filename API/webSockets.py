@@ -85,14 +85,24 @@ def delete_webhook(webhook_id):
 
 @app.route("/webhook", methods=["POST"])
 def listen_to_swaps():
+    """
+    This endpoint listens for incoming Helius webhook events.
+    When a swap event is received, it prints the data to the console.
+    """
     data = request.json  # Get JSON data from webhook request
-    if data.get("type") == "SWAP":
+    print("🔔 Incoming Data:")
+    print(json.dumps(data, indent=4))  # Print the incoming data for debugging
+
+    # Check if the event type is "SWAP"
+    if isinstance(data, dict) and data.get("type") == "SWAP":
         print("\n🔔 Swap Event Received:")
         print(json.dumps(data, indent=4))  # Print formatted JSON data of the swap event
     else:
         print("\n🔔 Non-Swap Event Received:")
         print(json.dumps(data, indent=4))  # Print other events for debugging
+
     return jsonify({"message": "✅ Webhook received"}), 200  # Respond to Helius
+
 
 def start_ngrok_webhook():
     # Start ngrok tunnel
@@ -104,7 +114,7 @@ def start_ngrok_webhook():
 
 if __name__ == "__main__":
     # Ask user for token address input (e.g., "So11111111111111111111111111111111111111112")
-    token_address = "So11111111111111111111111111111111111111112"
+    token_address = "3KiSkVkvqExtPqANkLV4ze1JdJaeuQPheNcQ2JZWDECg"
 
     # Fetch and delete all active webhooks
     active_webhooks = get_all_webhooks()
