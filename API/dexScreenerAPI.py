@@ -7,11 +7,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 BIRDEYE_API_URL = "https://public-api.birdeye.so/defi/history_price"
-TOKEN_ADDRESS = "So11111111111111111111111111111111111111112"  # Replace with actual token address
-INTERVAL = "15m"  # Example interval
 API_KEY = os.getenv("BIRDEYE_API_KEY")  # Replace with your Birdeye API key
 
-def get_historical_price(token_address, interval, api_key, chain="solana"):
+def get_historical_price(token_address, interval, chain="solana"):
     """
     Fetches historical price data for a given token from Birdeye API.
 
@@ -27,20 +25,20 @@ def get_historical_price(token_address, interval, api_key, chain="solana"):
         "5m": 5 * 60,
         "15m": 15 * 60,
         "30m": 30 * 60,
-        "1h": 60 * 60,
-        "4h": 4 * 60 * 60,
-        "12h": 12 * 60 * 60,
-        "1d": 24 * 60 * 60,
-        "3d": 3 * 24 * 60 * 60,
-        "1week": 7 * 24 * 60 * 60
+        "1H": 60 * 60,
+        "4H": 4 * 60 * 60,
+        "12H": 12 * 60 * 60,
+        "1D": 24 * 60 * 60,
+        "3D": 3 * 24 * 60 * 60,
+        "1W": 7 * 24 * 60 * 60
     }
 
     if interval not in interval_seconds:
-        raise ValueError("Invalid interval! Use one of: '15m', '30m', '1h', '4h', '12h', '1d', '1week'")
+        raise ValueError("Invalid interval! Use one of: '15m', '30m', '1H', '4H', '12H', '1d', '1week'")
 
     # Calculate time range
     current_time = int(time.time())  # Current UNIX timestamp
-    time_from = current_time - (interval_seconds[interval] * 14)  # 14 periods back
+    time_from = current_time - (interval_seconds[interval] * 15)  # 15 periods back for RSI calculation
 
     # Construct API request
     params = {
@@ -54,12 +52,12 @@ def get_historical_price(token_address, interval, api_key, chain="solana"):
     headers = {
         "accept": "application/json",
         "x-chain": chain,
-        "x-api-key": api_key
+        "x-api-key": API_KEY
     }
 
     try:
         response = requests.get(BIRDEYE_API_URL, headers=headers, params=params)
-
+        
         if response.status_code == 200:
             return response.json()  # Returns historical price data
         else:
@@ -68,13 +66,17 @@ def get_historical_price(token_address, interval, api_key, chain="solana"):
     except Exception as e:
         print(f"An error occurred: {e}")
         return None
-
+    
+    
 # Example usage
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
 
-    historical_data = get_historical_price(TOKEN_ADDRESS, INTERVAL, API_KEY)
-    if historical_data:
-        print(historical_data)  # Print or process historical price data
-    else:
-        print("Failed to fetch data.")
+    # TOKEN_ADDRESS = "3KiSkVkvqExtPqANkLV4ze1JdJaeuQPheNcQ2JZWDECg"  # Replace with actual token address
+    # INTERVAL = "1H"  # Example interval
+
+    # historical_data = get_historical_price(TOKEN_ADDRESS, INTERVAL, API_KEY)
+    # if historical_data:
+    #     print(historical_data)  # Print or process historical price data
+    # else:
+    #     print("Failed to fetch data.")
