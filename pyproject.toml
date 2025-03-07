@@ -7,6 +7,10 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.12"
+dotenv = "^0.9.9"
+requests = "^2.32.3"
+flask = "^3.1.0"
+pyngrok = "^7.2.3"
 
 
 [build-system]
