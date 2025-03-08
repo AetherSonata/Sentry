@@ -28,8 +28,12 @@ def get_historical_test_data(address, interval, span_in_days):
 
 def find_starting_point(historical_data, interval):
     """
-    Determines the best possible starting point for RSI calculation with at least 15 data points.
+    Determines the best possible starting point index for RSI calculation with at least 15 data points.
     Adjusts to the largest usable interval based on available data.
+
+    :param historical_data: Dictionary containing price history.
+    :param interval: The requested interval (e.g., "15m", "1H").
+    :return: (starting_index, best_interval)
     """
     intervals = ["1m", "5m", "15m", "30m", "1H", "4H", "12H", "1D", "3D", "1W"]
     period_counts = {
@@ -38,21 +42,21 @@ def find_starting_point(historical_data, interval):
     }
     
     data_points = historical_data["data"]["items"]
+    total_points = len(data_points)
     
-    # Find maximum interval that allows at least 15 data points
-    available_intervals = [i for i in intervals if len(data_points) >= 15 * (period_counts[i] // period_counts[interval])]
+    # Find the largest interval that allows at least 15 data points
+    available_intervals = [i for i in intervals if total_points >= 15 * (period_counts[i] // period_counts[interval])]
     
     if not available_intervals:
         raise ValueError("Not enough data points to calculate RSI with any reasonable interval.")
     
-    best_interval = available_intervals[-1]  # Pick the largest possible interval
-    print(f"Using interval: {best_interval}")  # Log the selected interval
-    
-    # Find starting index (15 points back)
+    best_interval = available_intervals[-1]  # Choose the largest usable interval
     step_size = period_counts[best_interval] // period_counts[interval]
-    starting_index = max(0, len(data_points) - (15 * step_size))
-    
-    return data_points[starting_index:], best_interval, period_counts
+    starting_index = min(15 * step_size, total_points - 1)
+
+
+    return starting_index, best_interval
+
 
 if __name__ == "__main__":
     TOKEN_ADDRESS = "3KiSkVkvqExtPqANkLV4ze1JdJaeuQPheNcQ2JZWDECg"
@@ -63,13 +67,10 @@ if __name__ == "__main__":
 
     print(f"{len(historical_data['data']['items'])} data points fetched.")
     if historical_data:
-        starting_data, best_interval, period_counts = find_starting_point(historical_data, INTERVAL)
-        print(f"Starting at interval: {best_interval}, Data points available: {len(starting_data)}")
+        starting_index, max_interval = find_starting_point(historical_data, INTERVAL)
+        print(f"Starting point: {starting_index}, Best interval: {max_interval}")
 
-        # Calculate RSI for multiple intervals
-        # calculate_rsi_for_intervals(historical_data, starting_data, period_counts)
-
-        plot_price_action(historical_data, INTERVAL, SPAN_IN_DAYS)
+        plot_price_action(historical_data, INTERVAL, SPAN_IN_DAYS, starting_index, max_interval)
 
     else:
         print("Failed to fetch data.")
