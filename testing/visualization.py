@@ -2,79 +2,92 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from datetime import datetime
 
-def plot_price_action(historical_data, interval, span_in_days, starting_index, max_interval):
-    """
-    Plots price action over a given span with adapted time intervals.
-    
-    - All points before `starting_index` are greyed out.
-    - The `starting_index` point is marked in purple.
-    - All points after `starting_index` are in blue.
-    - X-axis labels are distributed evenly with a maximum of 10 labels.
-    
-    :param historical_data: Historical data dictionary with timestamps and prices.
-    :param interval: The queried interval (e.g., "15m", "1H", "4H").
-    :param span_in_days: Total duration of data in days.
-    :param starting_index: The index marking the RSI calculation start.
-    """
-    if "data" not in historical_data or "items" not in historical_data["data"]:
-        raise ValueError("Invalid data format: Missing 'items' key.")
+class PricePlotter:
+    def __init__(self, historical_data, interval, starting_index):
+        """Initialize the plotter with historical data and interval settings."""
+        self.historical_data = historical_data
+        self.interval = interval
+        self.starting_index = starting_index
+        self.rsi_data = []
 
-    # Extract time and price
-    timestamps = [entry["unixTime"] for entry in historical_data["data"]["items"]]
-    prices = [entry["value"] for entry in historical_data["data"]["items"]]
+        # Create figure and axis
+        self.fig, self.ax = plt.subplots(figsize=(12, 6))
 
-    # Convert UNIX timestamps to datetime
-    times = [datetime.utcfromtimestamp(ts) for ts in timestamps]
+    def update_plot(self):
+        """Update the price action plot with the latest RSI data."""
+        self.ax.clear()
 
-    # Define colors
-    before_color = "gray"
-    starting_point_color = "purple"
-    after_color = "blue"
+        # Extract available price action
+        timestamps = [entry["unixTime"] for entry in self.historical_data["data"]["items"][:self.starting_index + len(self.rsi_data)]]
+        prices = [entry["value"] for entry in self.historical_data["data"]["items"][:self.starting_index + len(self.rsi_data)]]
 
-    # Plot the price action
-    plt.figure(figsize=(12, 6))
+        # Convert timestamps to datetime
+        times = [datetime.utcfromtimestamp(ts) for ts in timestamps]
 
-    # Grey out all points before the starting index
-    if starting_index > 0:
-        plt.plot(times[:starting_index + 1], prices[:starting_index + 1], marker='o', linestyle='-', color=before_color, alpha=0.5)
+        # Define colors
+        before_color = "gray"
+        starting_point_color = "purple"
+        after_color = "blue"
 
-    # Highlight the starting point in purple
-    plt.scatter(times[starting_index], prices[starting_index], color=starting_point_color, s=100, label="Starting Point (RSI Start)")
+        # Plot all points before the starting index in gray
+        if self.starting_index > 0:
+            self.ax.plot(times[:self.starting_index], prices[:self.starting_index], marker='o', linestyle='-', color=before_color, alpha=0.5)
 
-    # Plot all points after the starting index in blue
-    plt.plot(times[starting_index:], prices[starting_index:], marker='o', linestyle='-', color=after_color, label="Price Action (Post-Start)")
+        # Highlight the starting point in purple
+        self.ax.scatter(times[self.starting_index], prices[self.starting_index], color=starting_point_color, s=100, label="Starting Point (RSI Start)")
 
-    # Determine major time step for x-axis labels
-    interval_map = {
-        "1m": 1, "5m": 5, "15m": 15, "30m": 30, "1H": 60,
-        "4H": 240, "12H": 720, "1D": 1440, "3D": 4320, "1W": 10080
-    }
-    interval_minutes = interval_map.get(interval, 15)  # Default to 15m if unknown
-    total_time_minutes = (times[-1] - times[0]).total_seconds() / 60  # Total time span in minutes
+        # Plot all points after the starting index in blue
+        self.ax.plot(times[self.starting_index:self.starting_index + len(self.rsi_data)], 
+                     prices[self.starting_index:self.starting_index + len(self.rsi_data)], 
+                     marker='o', linestyle='-', color=after_color, label="Price Action (Post-Start)")
 
-    # Define number of labels (max 10 labels on x-axis)
-    max_labels = 10
-    labels_interval = max(1, int(len(times) / max_labels))  # How many points between each label
-    
-    # Calculate time step for x-axis label distribution (evenly spaced labels)
-    label_times = [times[i * labels_interval] for i in range(max_labels)]
-    
-    # Format the X-axis
-    plt.gca().xaxis.set_major_locator(mdates.AutoDateLocator())  # Automatically space major ticks
-    plt.gca().xaxis.set_major_formatter(mdates.DateFormatter("%H:%M\n%d-%b"))
+        # Display the most recent RSI values
+        latest_rsi = self.rsi_data[-1] if self.rsi_data else {}
+        rsi_text = "\n".join([f"RSI ({interval}): {rsi:.2f}" for interval, rsi in latest_rsi.items()])
 
-    # Set the x-ticks to the evenly distributed labels
-    plt.xticks(label_times)
+        self.ax.set_title(f"Price Action Animation ({self.interval} Interval) | Step {len(self.rsi_data)}\n{rsi_text}")
 
-    # Labels and title
-    plt.xlabel("Time (UTC)")
-    plt.ylabel("Price")
-    plt.title(f"Price Action Over {span_in_days} Days ({interval} Interval)")
-    plt.xticks(rotation=45)
-    plt.legend()
-    plt.grid()
+        # Format the X-axis
+        self.ax.xaxis.set_major_locator(mdates.AutoDateLocator())  
+        self.ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M\n%d-%b"))
+        plt.xticks(rotation=45)
 
-    # Show the plot
-    plt.show()
+        # Set labels and legend
+        self.ax.set_xlabel("Time (UTC)")
+        self.ax.set_ylabel("Price")
+        self.ax.legend()
+        self.ax.grid()
 
+        # Refresh the figure without blocking execution
+        plt.pause(0.1)
 
+    def add_rsi_data(self, rsi_values):
+        """Append new RSI values and update the plot."""
+        self.rsi_data.append(rsi_values)
+        self.update_plot()
+
+    def plot_static(self):
+        """Generates a static price action plot."""
+        timestamps = [entry["unixTime"] for entry in self.historical_data["data"]["items"]]
+        prices = [entry["value"] for entry in self.historical_data["data"]["items"]]
+        times = [datetime.utcfromtimestamp(ts) for ts in timestamps]
+
+        before_color = "gray"
+        starting_point_color = "purple"
+        after_color = "blue"
+
+        plt.figure(figsize=(12, 6))
+
+        if self.starting_index > 0:
+            plt.plot(times[:self.starting_index + 1], prices[:self.starting_index + 1], marker='o', linestyle='-', color=before_color, alpha=0.5)
+
+        plt.scatter(times[self.starting_index], prices[self.starting_index], color=starting_point_color, s=100, label="Starting Point (RSI Start)")
+        plt.plot(times[self.starting_index:], prices[self.starting_index:], marker='o', linestyle='-', color=after_color, label="Price Action (Post-Start)")
+
+        plt.xlabel("Time (UTC)")
+        plt.ylabel("Price")
+        plt.title(f"Price Action Over Time ({self.interval} Interval)")
+        plt.xticks(rotation=45)
+        plt.legend()
+        plt.grid()
+        plt.show()
