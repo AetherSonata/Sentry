@@ -70,7 +70,13 @@ if __name__ == "__main__":
         starting_index, max_interval = find_starting_point(historical_data, INTERVAL)
         print(f"Starting point: {starting_index}, Best interval: {max_interval}")
 
-        calculate_rsi_for_intervals(historical_data, starting_index, INTERVAL, max_interval)
+        rsi_values = calculate_rsi_for_intervals(historical_data, INTERVAL, max_interval, starting_index)
+        if rsi_values:
+           # iterate through rsi_values and print the values for each interval
+            for interval, rsi in rsi_values.items():
+                print(f"RSI ({interval}): {rsi}")
+
+            # Plot the price action
 
         plot_price_action(historical_data, INTERVAL, SPAN_IN_DAYS, starting_index, max_interval)
 
