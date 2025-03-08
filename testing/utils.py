@@ -59,7 +59,7 @@ def find_starting_point(historical_data, interval):
 
 
 if __name__ == "__main__":
-    TOKEN_ADDRESS = "3KiSkVkvqExtPqANkLV4ze1JdJaeuQPheNcQ2JZWDECg"
+    TOKEN_ADDRESS = "H4phNbsqjV5rqk8u6FUACTLB6rNZRTAPGnBb8KXJpump"
     INTERVAL = "15m"
     SPAN_IN_DAYS = 2
 
@@ -69,6 +69,8 @@ if __name__ == "__main__":
     if historical_data:
         starting_index, max_interval = find_starting_point(historical_data, INTERVAL)
         print(f"Starting point: {starting_index}, Best interval: {max_interval}")
+
+        calculate_rsi_for_intervals(historical_data, starting_index, INTERVAL, max_interval)
 
         plot_price_action(historical_data, INTERVAL, SPAN_IN_DAYS, starting_index, max_interval)
 
