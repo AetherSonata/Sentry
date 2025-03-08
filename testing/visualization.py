@@ -76,3 +76,5 @@ def plot_price_action(historical_data, interval, span_in_days, starting_index, m
 
     # Show the plot
     plt.show()
+
+
