@@ -60,7 +60,7 @@ def find_starting_point(historical_data, interval):
 
 if __name__ == "__main__":
     TOKEN_ADDRESS = "H4phNbsqjV5rqk8u6FUACTLB6rNZRTAPGnBb8KXJpump"
-    INTERVAL = "15m"
+    INTERVAL = "5m"
     SPAN_IN_DAYS = 2
 
     historical_data = get_historical_test_data(TOKEN_ADDRESS, INTERVAL, SPAN_IN_DAYS)

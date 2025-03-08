@@ -47,7 +47,7 @@ def calculate_rsi_for_intervals(historical_data, min_interval, max_interval, cur
     :param max_interval: Largest interval (e.g., "1H").
     :param current_point: Index of the last data point for RSI calculation.
     """
-    DATA_RESOLUTION_MINUTES = 15  # Data is in 15-minute intervals
+
     min_interval_minutes = interval_map[min_interval]
     max_interval_minutes = interval_map[max_interval]
     data_points = historical_data["data"]["items"]
@@ -63,7 +63,7 @@ def calculate_rsi_for_intervals(historical_data, min_interval, max_interval, cur
             continue
 
         # Calculate step size based on data resolution (15 minutes)
-        step_size = max(1, interval_minutes // DATA_RESOLUTION_MINUTES)  # e.g., 15/15=1, 30/15=2, 60/15=4
+        step_size = max(1, interval_minutes // interval_map[min_interval])  # e.g., 15/15=1, 30/15=2, 60/15=4
         required_points = 14 + 1  # Need 15 points for RSI with period=14
 
         # Calculate how many points we need before current_point
