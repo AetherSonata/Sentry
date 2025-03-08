@@ -9,7 +9,7 @@ load_dotenv()
 BIRDEYE_API_URL = "https://public-api.birdeye.so/defi/history_price"
 API_KEY = os.getenv("BIRDEYE_API_KEY")  # Replace with your Birdeye API key
 
-def get_historical_price(token_address, interval, chain="solana"):
+def get_historical_price(token_address, interval, periods, chain="solana"):
     """
     Fetches historical price data for a given token from Birdeye API.
 
@@ -38,7 +38,7 @@ def get_historical_price(token_address, interval, chain="solana"):
 
     # Calculate time range
     current_time = int(time.time())  # Current UNIX timestamp
-    time_from = current_time - (interval_seconds[interval] * 15)  # 15 periods back for RSI calculation
+    time_from = current_time - (interval_seconds[interval] * periods)  # 15 periods back for RSI calculation
 
     # Construct API request
     params = {
