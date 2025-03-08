@@ -38,20 +38,25 @@ def calculate_rsi(prices, period=14):
     rsi = 100 - (100 / (1 + rs))
     return round(rsi, 2)
 
-def calculate_rsi_for_intervals(historical_data, min_interval, max_interval, current_point):
+def calculate_rsi_for_intervals(historical_data, min_interval, max_interval):
     """
-    Calculates RSI for different intervals using the 60 points before current_point as the last point.
+    Calculates RSI for different intervals using the last point in the dataset as the current point.
     
     :param historical_data: Dataset of historical price data (15-minute granularity).
     :param min_interval: Smallest interval (e.g., "15m").
     :param max_interval: Largest interval (e.g., "1H").
-    :param current_point: Index of the last data point for RSI calculation.
     """
+    
+    # Automatically set the current_point to the last index of the dataset
+    data_points = historical_data
+    current_point = len(data_points) - 1
 
     min_interval_minutes = interval_map[min_interval]
     max_interval_minutes = interval_map[max_interval]
-    data_points = historical_data["data"]["items"]
+    
     rsi_results = {}
+
+    # print(current_point)
 
     if current_point < 60:
         raise ValueError(f"current_point {current_point} must have at least 60 prior points, but dataset starts at 0")
@@ -84,6 +89,6 @@ def calculate_rsi_for_intervals(historical_data, min_interval, max_interval, cur
 
         rsi = calculate_rsi(price_data)
         rsi_results[interval] = rsi
-        print(f"✅ RSI ({interval}): {rsi}")
+        # print(f"✅ RSI ({interval}): {rsi}")
 
     return rsi_results

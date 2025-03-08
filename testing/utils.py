@@ -39,13 +39,12 @@ def find_starting_point(historical_data, interval):
     :return: (starting_index, best_interval)
     """
     intervals = ["1m", "5m", "15m", "30m", "1H", "4H", "12H", "1D", "3D", "1W"]
-    period_counts = {
+    period_counts = { 
         "1m": 1, "5m": 5, "15m": 15, "30m": 30, "1H": 60,
         "4H": 240, "12H": 720, "1D": 1440, "3D": 4320, "1W": 10080
     }
     
-    data_points = historical_data["data"]["items"]
-    total_points = len(data_points)
+    total_points = len(historical_data)
     
     # Find the largest interval that allows at least 15 data points
     available_intervals = [i for i in intervals if total_points >= 15 * (period_counts[i] // period_counts[interval])]
