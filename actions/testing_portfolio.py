@@ -2,6 +2,7 @@ class TestingPortfolio:
     def __init__(self):
         # Initial holdings: Starting with 10 USD balance
         self.usd_balance = 10  # USD balance in portfolio
+        self.holdings = {}  # Dictionary to store token holdings (token_address: amount)
         self.trade_history = []  # List to store buy/sell transactions
 
     def buy(self, token, current_price, amount):
@@ -15,8 +16,15 @@ class TestingPortfolio:
         total_cost = current_price * amount
 
         if self.usd_balance >= total_cost:
-            # Proceed with purchase: Deduct USD and simulate acquiring tokens
+            # Proceed with purchase: Deduct USD and add the token to holdings
             self.usd_balance -= total_cost
+
+            # Update holdings with purchased tokens
+            if token in self.holdings:
+                self.holdings[token] += amount
+            else:
+                self.holdings[token] = amount
+
             self.trade_history.append({"action": "buy", "token": token, "price": current_price, "amount": amount})
             print(f"✅ Purchased {amount} of {token} at ${current_price} each. Total cost: ${total_cost:.2f}")
             return True
@@ -32,25 +40,42 @@ class TestingPortfolio:
         :param amount: The amount of tokens to sell
         :param price_per_token: The price per token in USD
         """
-        # Here, we simulate selling by adding USD to the balance
-        total_revenue = price_per_token * amount
-        self.usd_balance += total_revenue
-        self.trade_history.append({"action": "sell", "token": token, "price": price_per_token, "amount": amount})
-        print(f"✅ Sold {amount} of {token} at ${price_per_token} each. Total revenue: ${total_revenue:.2f}")
-        return True
+        # Check if enough tokens are available for selling
+        if token in self.holdings and self.holdings[token] >= amount:
+            total_revenue = price_per_token * amount
+            self.usd_balance += total_revenue
+            self.holdings[token] -= amount
+
+            # Remove the token from holdings if the amount reaches zero
+            if self.holdings[token] == 0:
+                del self.holdings[token]
+
+            self.trade_history.append({"action": "sell", "token": token, "price": price_per_token, "amount": amount})
+            print(f"✅ Sold {amount} of {token} at ${price_per_token} each. Total revenue: ${total_revenue:.2f}")
+            return True
+        else:
+            print(f"❌ Not enough {token} to sell {amount}. Current holdings: {self.holdings.get(token, 0)}")
+            return False
 
     def get_portfolio_value(self):
         """
-        Return the total portfolio value in USD (only cash balance for now).
+        Return the total portfolio value in USD (cash balance + value of token holdings).
 
         :return: Total portfolio value in USD
         """
-        return self.usd_balance
+        holdings_value = sum(self.holdings[token] * self.fetch_current_prices().get(token, 0) for token in self.holdings)
+        return self.usd_balance + holdings_value
 
     def portfolio_summary(self):
         """Print a summary of the current portfolio."""
         print("\n📊 Portfolio Summary:")
         print(f"💰 Cash Balance: ${self.usd_balance:.2f}")
+        if self.holdings:
+            print("\n📈 Holdings:")
+            for token, amount in self.holdings.items():
+                current_price = self.fetch_current_prices().get(token, 0)
+                value = amount * current_price if current_price else "N/A"
+                print(f"  - {token}: {amount:.4f} (Value: ${value:.2f})")
         total_value = self.get_portfolio_value()
         print(f"\n💵 Total Portfolio Value: ${total_value:.2f}\n")
 
@@ -67,5 +92,10 @@ class TestingPortfolio:
         return current_prices
 
     def get_holdings_by_address(self, token_address):
-        # For now, we don't track tokens, but this can be implemented later
-        return 0
+        """
+        Returns the amount of a token in holdings.
+
+        :param token_address: The token address (e.g., "So11111111111111111111111111111111111111112")
+        :return: Amount of the token in the holdings
+        """
+        return self.holdings.get(token_address, 0)
