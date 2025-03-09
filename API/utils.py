@@ -1,1 +1,0 @@
-def fetch_token_price (token_adress):

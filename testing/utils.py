@@ -1,4 +1,4 @@
-from API.dexScreenerAPI import get_historical_price
+from API.BirdEyeAPI import get_historical_price
 from analytics.price_analytics import calculate_rsi_for_intervals
 from testing.visualization import PricePlotter
 from datetime import datetime
