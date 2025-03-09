@@ -37,6 +37,8 @@ class MetricAnalyzer:
                 possible_intervals = available_data_points / (minutes / min_interval_minutes)
                 if possible_intervals >= 15:  # Ensure at least 15 data points for calculations
                     self.intervals_available_for_calculation.append((interval, minutes))
+        
+        
 
     def calculate_metrics_for_intervals(self):
         """Calculates RSI and different EMAs for all the calculated intervals."""
@@ -44,7 +46,6 @@ class MetricAnalyzer:
             return None
 
         metrics = {}
-        last_index = len(self.price_data) - 1
         min_interval_minutes = self.available_intervals[self.min_interval]
 
         for interval, interval_minutes in self.intervals_available_for_calculation:
@@ -96,3 +97,6 @@ class MetricAnalyzer:
         """Update the price data with a new dataset and determine intervals that can be calculated."""
         self.price_data = new_price_data
         self._generate_intervals_to_calculate()
+
+
+

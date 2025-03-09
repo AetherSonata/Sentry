@@ -1,13 +1,14 @@
 from analytics.price_analytics import  MetricAnalyzer
 from testing.utils import find_starting_point
+from collections import Counter
 
 # Global Configuration
 SLIPPAGE_PERCENTAGE = 0.02  # 2% slippage
 BUY_PERCENTAGE = 0.1        # 10% of available balance for buying
 SELL_PERCENTAGE = 1         # 100% of holding when selling
 STOP_LOSS_PERCENTAGE_LOW = 0.95  # 5% below current price
-STOP_LOSS_PERCENTAGE_HIGH = 0.97 # 3% below current price
-TAKE_PROFIT_PERCENTAGE = 1.10    # 10% above current price
+STOP_LOSS_PERCENTAGE_HIGH = 0.98 # 3% below current price
+TAKE_PROFIT_PERCENTAGE = 1.07    # 10% above current price
 
 SOL_MINT_ADDRESS = "So11111111111111111111111111111111111111112"
 
@@ -20,6 +21,18 @@ class TradingEngine:
         self.metrics = []
         self.portfolio = portfolio
         self.metric_analyzer = MetricAnalyzer(self.interval)
+
+        print(len(self.price_data))
+        self.initialize_prior_metrics()
+    
+    def initialize_prior_metrics(self):
+        # Initialize the metric analyzer with historical price data  
+        lookback = 5
+        for i in range(lookback):
+            lookback -= 1
+            self.metric_analyzer.update_price_data(self.price_data[:(len(self.price_data) - lookback )])  
+            self.metrics.append(self.metric_analyzer.calculate_metrics_for_intervals())
+            
 
     def check_for_trading_action(self, token_address):
         # Calculate max interval RSI for the latest price data
@@ -82,8 +95,12 @@ class TradingEngine:
         return action
 
     def check_if_buy_signal(self, current_price):
-        # Placeholder logic for a buy signal (e.g., based on RSI)
-        return True
+        # get latest metrics
+        current_metrics = self.metrics[-1]
+        # Check if RSI is below 30 (oversold)
+        if current_metrics.get(f"RSI_15m", 0) < 30 and current_metrics.get(f"RSI_1H", 0) < 30:
+            return True
+        
 
     def check_if_sell_signal(self, position, current_price):
         # Sell if the price is above take profit or below the lower bound of the stop loss range
@@ -108,7 +125,7 @@ class TradingEngine:
         # Adjust the effective price per token for slippage (you pay more per token)
         adjusted_price = current_price * (1 + SLIPPAGE_PERCENTAGE)
         buy_amount = buy_total_in_usd / adjusted_price
-        print(f"💰 Spending ${buy_total_in_usd:.2f} at adjusted price ${adjusted_price:.2f} per token; tokens received: {buy_amount:.6f}")
+        # print(f"💰 Spending ${buy_total_in_usd:.2f} at adjusted price ${adjusted_price:.2f} per token; tokens received: {buy_amount:.6f}")
         return buy_amount if buy_amount > 0 else 0
 
     def calculate_sell_amount(self, token_address):
@@ -126,4 +143,103 @@ class TradingEngine:
         # Use global constant for take profit percentage
         return current_price * TAKE_PROFIT_PERCENTAGE
     
-    
+
+
+    def determine_overall_trend(self):
+        """Determine overall trend by incorporating both RSI, smaller EMAs, and the 200-EMA confirmation (Golden Cross/Death Cross). """
+        
+        if not self.metrics:
+            return {"group_trends": {}, "overall_trend": "no data", "votes": {}}
+
+        metrics = self.metrics[-1]  # Latest metrics
+
+        # Define groups of intervals
+        groups = {
+            "short_term": ["1m", "5m", "15m"],
+            "mid_term": ["30m", "1h", "4h"],
+            "long_term": ["12h", "1d", "3d", "1w"]
+        }
+
+        group_trends = {}
+        for group_name, intervals in groups.items():
+            rsi_list = []
+            ema_signal_list = []
+            golden_cross = 0  # 1 for bullish, -1 for bearish
+
+            for interval in intervals:
+                rsi_key = f"RSI_{interval}"
+                ema15_key = f"15-Point-EMA_{interval}"
+                ema50_key = f"50-Point-EMA_{interval}"
+                ema200_key = f"200-Point-EMA_{interval}"
+
+                # Time-based trend determination
+                rsi_trend = self.determine_trend_over_time(rsi_key) if rsi_key in metrics else None
+                ema_trend = self.determine_trend_over_time(ema15_key, ema50_key) if ema15_key in metrics and ema50_key in metrics else None
+
+                # Store trend signals
+                if rsi_trend:
+                    rsi_list.append(rsi_trend)
+                if ema_trend:
+                    ema_signal_list.append(ema_trend)
+
+                # Check for Golden Cross / Death Cross
+                if ema200_key in metrics and ema15_key in metrics:
+                    ema200 = metrics[ema200_key]
+                    if metrics[ema15_key] > ema200:
+                        golden_cross = 1  # Bullish
+                    elif metrics[ema15_key] < ema200:
+                        golden_cross = -1  # Bearish
+
+            # Determine dominant trend in the group
+            if rsi_list or ema_signal_list:
+                avg_rsi_trend = Counter(rsi_list).most_common(1)[0][0] if rsi_list else None
+                avg_ema_trend = Counter(ema_signal_list).most_common(1)[0][0] if ema_signal_list else None
+
+                # Final group trend determination
+                if avg_rsi_trend == "bullish" and avg_ema_trend == "bullish" and golden_cross == 1:
+                    group_trends[group_name] = "bullish"
+                elif avg_rsi_trend == "bearish" and avg_ema_trend == "bearish" and golden_cross == -1:
+                    group_trends[group_name] = "bearish"
+                else:
+                    group_trends[group_name] = "neutral"
+            else:
+                group_trends[group_name] = "no data"
+
+        # Determine overall trend by majority vote
+        votes = Counter(group_trends.values())
+        overall_trend = max(votes, key=votes.get) if votes else "neutral"
+
+        return {
+            "group_trends": group_trends,
+            "overall_trend": overall_trend,
+            "votes": votes
+        } 
+
+    def determine_trend_over_time(self, metric_key, compare_key=None, lookback=5):
+        """Analyze RSI or EMA over the last `lookback` data points to determine trend direction over time."""
+        
+        if len(self.metrics) < lookback:
+            return "insufficient data"
+
+        # Extract metric values over `lookback` period
+        values = [entry.get(metric_key) for entry in self.metrics[-lookback:] if entry.get(metric_key) is not None]
+
+        # Ensure there are enough valid values
+        if len(values) < 2:
+            return "neutral"
+
+        if compare_key:
+            compare_values = [entry.get(compare_key) for entry in self.metrics[-lookback:] if entry.get(compare_key) is not None]
+
+            if len(compare_values) < 2:
+                return "neutral"
+
+            return "bullish" if values[-1] > compare_values[-1] else "bearish" if values[-1] < compare_values[-1] else "neutral"
+
+        return "bullish" if values[-1] > values[0] else "bearish" if values[-1] < values[0] else "neutral"
+
+
+
+
+                
+            

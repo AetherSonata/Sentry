@@ -52,7 +52,7 @@ class TestingPortfolio:
 
         # Print slippage cost
         slippage_cost = (slippage_adjusted_price - current_price) * amount
-        print(f"📉 Slippage cost: ${slippage_cost:.2f}")
+        # print(f"📉 Slippage cost: ${slippage_cost:.2f}")
 
         # Check if we have enough USDC to perform the buy
         if self.holdings.get('USDC', 0) >= total_cost:
@@ -103,7 +103,7 @@ class TestingPortfolio:
 
         # Print slippage cost
         slippage_cost = (price_per_token * amount) - revenue_before_fees
-        print(f"📉 Slippage cost: ${slippage_cost:.2f}")
+        # print(f"📉 Slippage cost: ${slippage_cost:.2f}")
 
         # Check if enough tokens are available for selling
         if token in self.holdings and self.holdings[token] >= amount:

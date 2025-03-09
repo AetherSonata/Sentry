@@ -53,7 +53,7 @@ def find_starting_point(historical_data, interval):
     
     best_interval = available_intervals[-1]  # Choose the largest usable interval
     step_size = period_counts[best_interval] // period_counts[interval]
-    starting_index = min(15 * step_size, total_points - 1)
+    starting_index = min(15 * step_size, total_points - 1) + 50
 
 
     return starting_index, best_interval
