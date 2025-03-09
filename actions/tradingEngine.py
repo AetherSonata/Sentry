@@ -1,5 +1,6 @@
 from analytics.price_analytics import calculate_rsi_for_intervals
 from testing.utils import find_starting_point
+from actions.testing_portfolio import Portfolio
 
 class TradingEngine:
     def __init__(self, historical_price_data, interval):
