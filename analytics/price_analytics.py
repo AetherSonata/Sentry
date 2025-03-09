@@ -1,10 +1,10 @@
 import pandas as pd
 
 class MetricAnalyzer:
-    def __init__(self, smallest_interval):
+    def __init__(self, min_interval):
         """Initialize the metric analyzer with price data and the smallest sampling interval."""
         self.price_data = None  # Historical price data to be appended
-        self.smallest_interval = smallest_interval  # The smallest sampling interval (e.g., 1m, 5m, 15m, etc.)
+        self.min_interval = min_interval  # The smallest sampling interval (e.g., 1m, 5m, 15m, etc.)
         self.intervals_available_for_calculation = []  # List of intervals that can be calculated
         
         # Define the available intervals and the conversion map
@@ -28,50 +28,47 @@ class MetricAnalyzer:
         if self.price_data is None or len(self.price_data) == 0:
             return  # No data, no intervals can be calculated
 
-        smallest_interval_minutes = self.available_intervals[self.smallest_interval]
+        min_interval_minutes = self.available_intervals[self.min_interval]
         available_data_points = len(self.price_data)
 
         # Determine which intervals can be calculated based on the available data points
         for interval, minutes in self.available_intervals.items():
-            if minutes % smallest_interval_minutes == 0:
-                possible_intervals = available_data_points / (minutes / smallest_interval_minutes)
-                if possible_intervals >= 15:
+            if minutes % min_interval_minutes == 0:
+                possible_intervals = available_data_points / (minutes / min_interval_minutes)
+                if possible_intervals >= 15:  # Ensure at least 15 data points for calculations
                     self.intervals_available_for_calculation.append((interval, minutes))
 
     def calculate_metrics_for_intervals(self):
-        """Calculates RSI and EMA for all the calculated intervals."""
+        """Calculates RSI and different EMAs for all the calculated intervals."""
         if not self.intervals_available_for_calculation:
             return None
 
         metrics = {}
         last_index = len(self.price_data) - 1
-        smallest_interval_minutes = self.available_intervals[self.smallest_interval]
+        min_interval_minutes = self.available_intervals[self.min_interval]
 
         for interval, interval_minutes in self.intervals_available_for_calculation:
-            step = interval_minutes // smallest_interval_minutes  # How many smaller intervals to skip
-            required_points = 15  # Always take 15 data points for calculation
-
-            # Fetch every `step`-th element starting from the last available point
-            interval_data = self.price_data[::-1][::step][:required_points][::-1]
-
-            if len(interval_data) < required_points:
-                continue  # Skip calculation if we don't have enough data
-
-            # Calculate RSI for the current interval
-            rsi = self.calculate_rsi(interval_data, required_points)
-            metrics[f"RSI_{interval}"] = rsi
+            step = interval_minutes // min_interval_minutes  # How many smaller intervals to skip
             
-            # Calculate 15-point EMA for the current interval
-            ema = self.calculate_ema(interval_data, required_points)
-            metrics[f"15-Point-EMA_{interval}"] = ema
+            # Fetch the required data points for each metric
+            ema_periods = [15, 50, 200]
 
-            # Calculate 50-point EMA for the current interval if possible
-            ema = self.calculate_ema(interval_data, required_points)
-            metrics[f"50-Point-EMA_{interval}"] = ema
+            for period in ema_periods:
+                required_points = period  # EMA needs at least `period` number of points
+                interval_data = self.price_data[::-1][::step][:required_points][::-1]
 
-            # Calculate 200-point EMA for the current interval if possible
-            ema = self.calculate_ema(interval_data, required_points)
-            metrics[f"200-Point-EMA_{interval}"] = ema
+                if len(interval_data) < required_points:
+                    continue  # Skip calculation if we don't have enough data
+
+                ema_value = self.calculate_ema(interval_data, required_points)
+                metrics[f"{period}-Point-EMA_{interval}"] = ema_value
+
+            # Always calculate RSI with 15 points
+            required_points = 15
+            interval_data = self.price_data[::-1][::step][:required_points][::-1]
+            if len(interval_data) >= required_points:
+                rsi = self.calculate_rsi(interval_data, required_points)
+                metrics[f"RSI_{interval}"] = rsi
 
         return metrics
     
