@@ -1,5 +1,4 @@
 
-from analytics.price_analytics import calculate_rsi_for_intervals
 from testing.utils import get_historical_test_data, find_starting_point
 from testing.visualization import PricePlotter
 from actions.tradingEngine import TradingEngine
@@ -37,7 +36,9 @@ if __name__ == "__main__":
             tradingEngine.add_new_price_point(historical_data["data"]["items"][i])
             action = tradingEngine.check_for_trading_action(TOKEN_ADDRESS)
             plotter.add_price_point(historical_data["data"]["items"][i], action)
-            print(f"current balance: {portfolio.holdings['USDC']}")
+            # print(f"current balance: {portfolio.holdings['USDC']}")
+            print(f"current metrics: {tradingEngine.metrics[-1]}")
+            
             
         # plotter.plot_static()
         

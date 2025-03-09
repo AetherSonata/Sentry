@@ -13,6 +13,7 @@ flask = "^3.1.0"
 pyngrok = "^7.2.3"
 numpy = "^2.2.3"
 matplotlib = "^3.10.1"
+pandas = "^2.2.3"
 
 
 [build-system]

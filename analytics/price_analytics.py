@@ -1,94 +1,101 @@
-import numpy as np
+import pandas as pd
 
-# Convert interval strings to minutes
-interval_map = {
-    "1m": 1, "5m": 5, "15m": 15, "30m": 30, "1H": 60,
-    "4H": 240, "12H": 720, "1D": 1440, "3D": 4320, "1W": 10080
-}
-
-def calculate_rsi(prices, period=14):
-    """
-    Calculates the Relative Strength Index (RSI) using a method similar to TradingView's RSI.
-    
-    :param prices: List or NumPy array of closing prices
-    :param period: RSI calculation period (default: 14)
-    :return: RSI value as a float
-    """
-    if len(prices) < period + 1:
-        raise ValueError(f"Not enough data points to calculate RSI. Required: {period+1}, Given: {len(prices)}")
-
-    changes = np.diff(prices)
-    gains = np.where(changes >= 0, changes, 0)
-    losses = np.where(changes < 0, -changes, 0)
-
-    def rma(values, length):
-        rma_values = np.zeros_like(values)
-        rma_values[0] = np.mean(values[:length])
-        for i in range(1, len(values)):
-            rma_values[i] = (rma_values[i - 1] * (length - 1) + values[i]) / length
-        return rma_values
-
-    avg_gain = rma(gains, period)[-1]
-    avg_loss = rma(losses, period)[-1]
-
-    if avg_loss == 0:
-        return 100
-
-    rs = avg_gain / avg_loss
-    rsi = 100 - (100 / (1 + rs))
-    return round(rsi, 2)
-
-def calculate_rsi_for_intervals(historical_data, min_interval, max_interval):
-    """
-    Calculates RSI for different intervals using the last point in the dataset as the current point.
-    
-    :param historical_data: Dataset of historical price data (15-minute granularity).
-    :param min_interval: Smallest interval (e.g., "15m").
-    :param max_interval: Largest interval (e.g., "1H").
-    """
-    
-    # Automatically set the current_point to the last index of the dataset
-    data_points = historical_data
-    current_point = len(data_points) - 1
-
-    min_interval_minutes = interval_map[min_interval]
-    max_interval_minutes = interval_map[max_interval]
-    
-    rsi_results = {}
-
-    # print(current_point)
-
-    if current_point < 60:
-        raise ValueError(f"current_point {current_point} must have at least 60 prior points, but dataset starts at 0")
-
-    for interval in interval_map:
-        interval_minutes = interval_map[interval]
+class MetricAnalyzer:
+    def __init__(self, smallest_interval):
+        """Initialize the metric analyzer with price data and the smallest sampling interval."""
+        self.price_data = None  # Historical price data to be appended
+        self.smallest_interval = smallest_interval  # The smallest sampling interval (e.g., 1m, 5m, 15m, etc.)
+        self.intervals_available_for_calculation = []  # List of intervals that can be calculated
         
-        if interval_minutes < min_interval_minutes or interval_minutes > max_interval_minutes:
-            continue
+        # Define the available intervals and the conversion map
+        self.available_intervals = {
+            "1m": 1,
+            "5m": 5,
+            "15m": 15,
+            "30m": 30,
+            "1h": 60,
+            "4h": 240,
+            "12h": 720,
+            "1d": 1440,
+            "3d": 4320,
+            "1w": 10080
+        }
+    
+    def _generate_intervals_to_calculate(self):
+        """Generate the list of intervals to calculate based on the available price data."""
+        self.intervals_available_for_calculation = []  # Reset before calculating
 
-        # Calculate step size based on data resolution (15 minutes)
-        step_size = max(1, interval_minutes // interval_map[min_interval])  # e.g., 15/15=1, 30/15=2, 60/15=4
-        required_points = 14 + 1  # Need 15 points for RSI with period=14
+        if self.price_data is None or len(self.price_data) == 0:
+            return  # No data, no intervals can be calculated
 
-        # Calculate how many points we need before current_point
-        total_points_needed = required_points * step_size  # e.g., 15*1=15, 15*2=30, 15*4=60
+        smallest_interval_minutes = self.available_intervals[self.smallest_interval]
+        available_data_points = len(self.price_data)
 
-        if current_point - total_points_needed + 1 < 0:
-            print(f"⚠️ Not enough prior data for {interval} RSI (required {total_points_needed} points before index {current_point})")
-            continue
+        # Determine which intervals can be calculated based on the available data points
+        for interval, minutes in self.available_intervals.items():
+            if minutes % smallest_interval_minutes == 0:
+                possible_intervals = available_data_points / (minutes / smallest_interval_minutes)
+                if possible_intervals >= 15:
+                    self.intervals_available_for_calculation.append((interval, minutes))
 
-        # Get the price data, working backwards from current_point
-        price_data = []
-        for i in range(current_point - (required_points - 1) * step_size, current_point + 1, step_size):
-            price_data.append(data_points[i]["value"])
+    def calculate_metrics_for_intervals(self):
+        """Calculates RSI and EMA for all the calculated intervals."""
+        if not self.intervals_available_for_calculation:
+            return None
 
-        if len(price_data) != required_points:
-            print(f"⚠️ Unexpected data length for {interval} RSI (expected {required_points}, got {len(price_data)})")
-            continue
+        metrics = {}
+        last_index = len(self.price_data) - 1
+        smallest_interval_minutes = self.available_intervals[self.smallest_interval]
 
-        rsi = calculate_rsi(price_data)
-        rsi_results[interval] = rsi
-        # print(f"✅ RSI ({interval}): {rsi}")
+        for interval, interval_minutes in self.intervals_available_for_calculation:
+            step = interval_minutes // smallest_interval_minutes  # How many smaller intervals to skip
+            required_points = 15  # Always take 15 data points for calculation
 
-    return rsi_results
+            # Fetch every `step`-th element starting from the last available point
+            interval_data = self.price_data[::-1][::step][:required_points][::-1]
+
+            if len(interval_data) < required_points:
+                continue  # Skip calculation if we don't have enough data
+
+            # Calculate RSI for the current interval
+            rsi = self.calculate_rsi(interval_data, required_points)
+            metrics[f"RSI_{interval}"] = rsi
+            
+            # Calculate 15-point EMA for the current interval
+            ema = self.calculate_ema(interval_data, required_points)
+            metrics[f"15-Point-EMA_{interval}"] = ema
+
+            # Calculate 50-point EMA for the current interval if possible
+            ema = self.calculate_ema(interval_data, required_points)
+            metrics[f"50-Point-EMA_{interval}"] = ema
+
+            # Calculate 200-point EMA for the current interval if possible
+            ema = self.calculate_ema(interval_data, required_points)
+            metrics[f"200-Point-EMA_{interval}"] = ema
+
+        return metrics
+    
+    def calculate_rsi(self, price_data, period):
+        """Calculate the RSI (Relative Strength Index) for a given price data."""
+        price_series = pd.Series([x['value'] for x in price_data])
+        delta = price_series.diff()
+        gain = delta.where(delta > 0, 0)
+        loss = -delta.where(delta < 0, 0)
+        avg_gain = gain.rolling(window=period).mean()
+        avg_loss = loss.rolling(window=period).mean()
+        rs = avg_gain / avg_loss
+        rsi = 100 - (100 / (1 + rs))
+        return rsi.iloc[-1]  # Return the latest RSI value
+
+    def calculate_ema(self, price_data, period):
+        """Calculate the Exponential Moving Average (EMA) for a given price data."""
+        price_series = pd.Series([x['value'] for x in price_data])
+        
+        # Calculate the EMA using pandas' built-in ewm (exponentially weighted moving average) function
+        ema = price_series.ewm(span=period, adjust=False).mean()
+        return ema.iloc[-1]  # Return the latest EMA value
+    
+    def update_price_data(self, new_price_data):
+        """Update the price data with a new dataset and determine intervals that can be calculated."""
+        self.price_data = new_price_data
+        self._generate_intervals_to_calculate()

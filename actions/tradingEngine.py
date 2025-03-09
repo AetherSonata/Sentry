@@ -1,4 +1,4 @@
-from analytics.price_analytics import calculate_rsi_for_intervals
+from analytics.price_analytics import  MetricAnalyzer
 from testing.utils import find_starting_point
 
 # Global Configuration
@@ -17,14 +17,17 @@ class TradingEngine:
         self.price_data = historical_price_data
         self.interval = interval
         self.active_position = None  # This will hold our current (averaged) position
-        self.rsi_data = []
+        self.metrics = []
         self.portfolio = portfolio
+        self.metric_analyzer = MetricAnalyzer(self.interval)
 
     def check_for_trading_action(self, token_address):
         # Calculate max interval RSI for the latest price data
         _, max_interval = find_starting_point(self.price_data, self.interval)
         # Append the latest RSI calculation
-        self.rsi_data.append(calculate_rsi_for_intervals(self.price_data, self.interval, max_interval))
+        self.metric_analyzer.update_price_data(self.price_data)
+        self.metrics.append(self.metric_analyzer.calculate_metrics_for_intervals())
+        
         current_price = self.price_data[-1]["value"]
 
         action = "NONE"
@@ -75,7 +78,7 @@ class TradingEngine:
                     action = "BUYING_ERROR"
             else:
                 action = "NONE"
-
+        # print(action)
         return action
 
     def check_if_buy_signal(self, current_price):
@@ -122,3 +125,5 @@ class TradingEngine:
     def calculate_take_profit(self, current_price):
         # Use global constant for take profit percentage
         return current_price * TAKE_PROFIT_PERCENTAGE
+    
+    

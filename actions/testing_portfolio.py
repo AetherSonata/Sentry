@@ -72,8 +72,8 @@ class TestingPortfolio:
                 "amount": amount
             })
 
-            print(f"✅ Purchased {amount} of {token} at ${slippage_adjusted_price:.2f} each (after slippage).")
-            print(f"💵 Total cost: ${total_cost:.2f} (including fees).")
+            # print(f"✅ Purchased {amount} of {token} at ${slippage_adjusted_price:.2f} each (after slippage).")
+            # print(f"💵 Total cost: ${total_cost:.2f} (including fees).")
             return True
         else:
             print(f"❌ Not enough USDC to buy {amount} {token} at ${slippage_adjusted_price:.2f} each. Total required: ${total_cost:.2f}")
@@ -121,8 +121,8 @@ class TestingPortfolio:
                 "amount": amount
             })
 
-            print(f"✅ Sold {amount} of {token} at ${slippage_adjusted_price:.2f} each (after slippage).")
-            print(f"💵 Total revenue: ${revenue_after_fees:.2f} (after fees).")
+            # print(f"✅ Sold {amount} of {token} at ${slippage_adjusted_price:.2f} each (after slippage).")
+            # print(f"💵 Total revenue: ${revenue_after_fees:.2f} (after fees).")
             return True
         else:
             print(f"❌ Not enough {token} to sell {amount}. Current holdings: {self.holdings.get(token, 0)}")

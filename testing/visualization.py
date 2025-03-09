@@ -33,7 +33,7 @@ class PricePlotter:
             price = data["value"]
 
             # Set color based on action
-            if action == "BOUGHT":
+            if action == "BOUGHT" or action == "ADDED":
                 color = "green"
             elif action == "SOLD":
                 color = "red"
