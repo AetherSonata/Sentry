@@ -58,7 +58,7 @@ class TestingPortfolio:
             print(f"❌ Not enough USDC to buy {amount} {token} at ${current_price} each. Total required: ${total_cost:.2f}")
             return False
 
-    def sell(self, token, amount, price_per_token):
+    def sell(self, token, price_per_token, amount ):
         """
         Sell a certain amount of a token for USDC.
 

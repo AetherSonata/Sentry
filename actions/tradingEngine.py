@@ -21,7 +21,7 @@ class TradingEngine:
         if self.is_bought:
             if self.check_if_sell_signal():
                 
-                if self.portfolio.sell(token_adress, self.calculate_sell_amount(token_adress), self.price_data[-1]["value"], ):
+                if self.portfolio.sell(token_adress,  self.price_data[-1]["value"], self.calculate_sell_amount(token_adress) ):
                     action = "SOLD"
                     self.is_bought = False
                 else: 
@@ -31,7 +31,7 @@ class TradingEngine:
         else:
             if self.check_if_buy_signal():
                 
-                if self.portfolio.buy(token_adress, self.calculate_buy_amount(), self.price_data[-1]["value"]):
+                if self.portfolio.buy(token_adress, self.price_data[-1]["value"], self.calculate_buy_amount(self.price_data[-1]["value"]), ):
                     action = "BOUGHT"
                     self.is_bought = True
                 else:
@@ -55,10 +55,12 @@ class TradingEngine:
         self.price_data.append(new_price_data)
         pass
 
-    def calculate_buy_amount(self):
+    def calculate_buy_amount(self, current_price):
         available_balance = self.portfolio.holdings["USDC"]
         buy_percentage = 0.1  
-        buy_amount = available_balance * buy_percentage
+        buy_total_in_usd = available_balance * buy_percentage
+        buy_amount = buy_total_in_usd / current_price
+        print(f"buy amount: {buy_amount}")
 
         return buy_amount if buy_amount > 0 else 0
 
