@@ -37,8 +37,9 @@ if __name__ == "__main__":
             tradingEngine.add_new_price_point(historical_data["data"]["items"][i])
             action = tradingEngine.check_for_trading_action(TOKEN_ADDRESS)
             plotter.add_price_point(historical_data["data"]["items"][i], action)
+            print(f"current balance: {portfolio.holdings['USDC']}")
             
-        plotter.plot_static()
+        # plotter.plot_static()
         
     else:
         print("Failed to fetch data.")
