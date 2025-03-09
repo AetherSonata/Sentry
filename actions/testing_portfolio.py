@@ -6,7 +6,7 @@ class TestingPortfolio:
         }  # Dictionary to store token holdings (token_symbol: amount)
         self.trade_history = []  # List to store buy/sell transactions
 
-    def calculate_transaction_cost_percentage(self, price_per_token, amount):
+    def calculate_transaction_fee(self, price_per_token, amount):
         """
         Calculate the transaction cost based on the price and amount.
         Includes gas fees and DEX fees.
@@ -15,8 +15,8 @@ class TestingPortfolio:
         :param amount: The amount of the token to buy/sell
         :return: Transaction cost as a percentage of the total price
         """
-        # Gas fee: A much lower value (e.g., 0.0005 SOL)
-        gas_fee_percentage = 0.0005  # Solana gas fee, more realistic
+        # Gas fee: 
+        gas_fee = 0.32 # Solana gas fee, more realistic
 
         # DEX fee (lower than Ethereum, typically around 0.2%)
         dex_fee_percentage = 0.3 / 100  # 0.2% DEX fee
@@ -24,21 +24,35 @@ class TestingPortfolio:
         total_cost = price_per_token * amount
 
         # Calculate total transaction cost as a sum of gas and DEX fees
-        total_fee = (gas_fee_percentage + dex_fee_percentage) * total_cost
+        total_fee = ( dex_fee_percentage) * total_cost + gas_fee
         return total_fee
 
 
-    def buy(self, token, current_price, amount):
+    def buy(self, token, current_price, amount, slippage):
         """
         Buy a certain amount of a token using USDC.
 
         :param token: The token address or symbol (e.g., "So11111111111111111111111111111111111111112")
         :param amount: The amount of tokens to buy
-        :param price_per_token: The price per token in USD
+        :param current_price: The price per token in USD before slippage
+        :param slippage: The slippage tolerance (e.g., 0.02 for 2%)
         """
-        # Calculate the transaction cost (including gas and DEX fees)
-        transaction_cost = self.calculate_transaction_cost_percentage(current_price, amount)
-        total_cost = (current_price * amount) + transaction_cost
+
+        # Apply slippage to execution price (increasing the price paid per token)
+        slippage_adjusted_price = current_price * (1 + slippage)
+
+        # Calculate the total cost before transaction fees
+        total_cost_before_fees = slippage_adjusted_price * amount
+
+        # Calculate transaction fees (gas + DEX fees)
+        transaction_cost = self.calculate_transaction_fee(current_price, amount)
+
+        # Final total cost including slippage and fees
+        total_cost = total_cost_before_fees + transaction_cost
+
+        # Print slippage cost
+        slippage_cost = (slippage_adjusted_price - current_price) * amount
+        print(f"📉 Slippage cost: ${slippage_cost:.2f}")
 
         # Check if we have enough USDC to perform the buy
         if self.holdings.get('USDC', 0) >= total_cost:
@@ -51,40 +65,69 @@ class TestingPortfolio:
             else:
                 self.holdings[token] = amount
 
-            self.trade_history.append({"action": "buy", "token": token, "price": current_price, "amount": amount})
-            print(f"✅ Purchased {amount} of {token} at ${current_price} each. Total cost: ${total_cost:.2f} (including fees)")
+            self.trade_history.append({
+                "action": "buy", 
+                "token": token, 
+                "price": slippage_adjusted_price, 
+                "amount": amount
+            })
+
+            print(f"✅ Purchased {amount} of {token} at ${slippage_adjusted_price:.2f} each (after slippage).")
+            print(f"💵 Total cost: ${total_cost:.2f} (including fees).")
             return True
         else:
-            print(f"❌ Not enough USDC to buy {amount} {token} at ${current_price} each. Total required: ${total_cost:.2f}")
+            print(f"❌ Not enough USDC to buy {amount} {token} at ${slippage_adjusted_price:.2f} each. Total required: ${total_cost:.2f}")
             return False
 
-    def sell(self, token, price_per_token, amount ):
+
+    def sell(self, token, price_per_token, amount, slippage):
         """
         Sell a certain amount of a token for USDC.
 
         :param token: The token address or symbol (e.g., "So11111111111111111111111111111111111111112")
         :param amount: The amount of tokens to sell
         :param price_per_token: The price per token in USD
+        :param slippage: The slippage tolerance (e.g., 0.02 for 2%)
         """
-        # Calculate the transaction cost (including gas and DEX fees)
-        transaction_cost = self.calculate_transaction_cost_percentage(price_per_token, amount)
-        total_revenue = (price_per_token * amount) - transaction_cost
+        # Apply slippage to execution price
+        slippage_adjusted_price = price_per_token * (1 - slippage)
+        
+        # Calculate revenue BEFORE transaction costs
+        revenue_before_fees = slippage_adjusted_price * amount
+
+        # Calculate transaction cost (gas + DEX fees)
+        transaction_cost = self.calculate_transaction_fee(price_per_token, amount)
+
+        # Final revenue after deducting transaction fees
+        revenue_after_fees = revenue_before_fees - transaction_cost
+
+        # Print slippage cost
+        slippage_cost = (price_per_token * amount) - revenue_before_fees
+        print(f"📉 Slippage cost: ${slippage_cost:.2f}")
 
         # Check if enough tokens are available for selling
         if token in self.holdings and self.holdings[token] >= amount:
-            self.holdings['USDC'] += total_revenue
+            self.holdings['USDC'] += revenue_after_fees
             self.holdings[token] -= amount
 
             # Remove the token from holdings if the amount reaches zero
             if self.holdings[token] == 0:
                 del self.holdings[token]
 
-            self.trade_history.append({"action": "sell", "token": token, "price": price_per_token, "amount": amount})
-            print(f"✅ Sold {amount} of {token} at ${price_per_token} each. Total revenue: ${total_revenue:.2f} (after fees)")
+            self.trade_history.append({
+                "action": "sell", 
+                "token": token, 
+                "price": slippage_adjusted_price, 
+                "amount": amount
+            })
+
+            print(f"✅ Sold {amount} of {token} at ${slippage_adjusted_price:.2f} each (after slippage).")
+            print(f"💵 Total revenue: ${revenue_after_fees:.2f} (after fees).")
             return True
         else:
             print(f"❌ Not enough {token} to sell {amount}. Current holdings: {self.holdings.get(token, 0)}")
             return False
+
 
     def get_portfolio_value(self):
         """

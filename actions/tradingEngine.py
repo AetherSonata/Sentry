@@ -8,7 +8,7 @@ class TradingEngine:
         """Initialize the trading engine with historical price data and interval settings."""
         self.price_data = historical_price_data 
         self.interval = interval
-        self.is_bought = False
+        self.current_trades = []
         self.rsi_data = []
         self.portfolio = portfolio
 
@@ -21,7 +21,7 @@ class TradingEngine:
         if self.is_bought:
             if self.check_if_sell_signal():
                 
-                if self.portfolio.sell(token_adress,  self.price_data[-1]["value"], self.calculate_sell_amount(token_adress) ):
+                if self.portfolio.sell(token_adress,  self.price_data[-1]["value"], self.calculate_sell_amount(token_adress), slippage=0.02 ):
                     action = "SOLD"
                     self.is_bought = False
                 else: 
@@ -31,7 +31,7 @@ class TradingEngine:
         else:
             if self.check_if_buy_signal():
                 
-                if self.portfolio.buy(token_adress, self.price_data[-1]["value"], self.calculate_buy_amount(self.price_data[-1]["value"]), ):
+                if self.portfolio.buy(token_adress, self.price_data[-1]["value"], self.calculate_buy_amount(self.price_data[-1]["value"]), slippage=0.02 ):
                     action = "BOUGHT"
                     self.is_bought = True
                 else:
@@ -53,7 +53,7 @@ class TradingEngine:
 
     def add_new_price_point(self, new_price_data):
         self.price_data.append(new_price_data)
-        pass
+        
 
     def calculate_buy_amount(self, current_price):
         available_balance = self.portfolio.holdings["USDC"]
@@ -72,4 +72,7 @@ class TradingEngine:
         return sell_amount if sell_amount > 0 else 0
 
     def calculate_stop_loss(self, current_price):
+        pass
+
+    def calculate_slippage(self):
         pass
