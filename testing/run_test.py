@@ -1,5 +1,5 @@
 
-from testing.utils import get_historical_test_data, find_starting_point
+from testing.utils import get_historical_test_data, find_starting_point, load_historical_price, save_historical_price
 from testing.visualization import PricePlotter
 from actions.tradingEngine import TradingEngine
 from actions.testing_portfolio import TestingPortfolio as Portfolio
@@ -13,8 +13,22 @@ TESTING_PORT_BALANCE = 100
 
 if __name__ == "__main__":
 
-
-    historical_data = get_historical_test_data(TOKEN_ADDRESS, INTERVAL, SPAN_IN_DAYS)
+    #if data cant be read from file, fetch it from API
+    try:
+        historical_data = load_historical_price()
+    except Exception as e:
+        print(f"Error loading data: {e}")
+    
+    if not historical_data: 
+        historical_data = get_historical_test_data(TOKEN_ADDRESS, INTERVAL, SPAN_IN_DAYS)
+        print("Data fetched from API.")
+        try:
+            save_historical_price(historical_data)
+        except Exception as e:
+            print(f"Error saving data: {e}")
+    else:
+        print("Data successfully loaded from file.")
+    
 
     print(f"{len(historical_data['data']['items'])} data points fetched.")
     if historical_data:

@@ -2,6 +2,8 @@ from API.BirdEyeAPI import get_historical_price
 from testing.visualization import PricePlotter
 from datetime import datetime
 import time
+import json
+import os
 
 
 def get_historical_test_data(address, interval, span_in_days):
@@ -59,5 +61,43 @@ def find_starting_point(historical_data, interval):
     return starting_index, best_interval
 
 
+
+
+def save_historical_price(data, filename="historical_price.json"):
+    """
+    Saves historical price data to a JSON file.
+    
+    :param data: The historical price data (dictionary) to save.
+    :param filename: The name of the file to store data.
+    """
+    if data is None:
+        print("No data to save.")
+        return
+    
+    try:
+        with open(filename, "w") as file:
+            json.dump(data, file, indent=4)
+        print(f"Data successfully saved to {filename}")
+    except Exception as e:
+        print(f"Error saving data: {e}")
+
+def load_historical_price(filename="historical_price.json"):
+    """
+    Loads historical price data from a JSON file.
+
+    :param filename: The name of the file to read data from.
+    :return: The historical price data in the same format as returned by `get_historical_price`.
+    """
+    if not os.path.exists(filename):
+        print("No stored data found.")
+        return None
+
+    try:
+        with open(filename, "r") as file:
+            data = json.load(file)
+        return data
+    except Exception as e:
+        print(f"Error loading data: {e}")
+        return None
 
 
