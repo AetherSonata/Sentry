@@ -49,22 +49,19 @@ if __name__ == "__main__":
         for i in range(starting_index + 1, len(historical_data["data"]["items"])):
             tradingEngine.add_new_price_point(historical_data["data"]["items"][i])
             action = tradingEngine.check_for_trading_action(TOKEN_ADDRESS)
-            _, rsi_trends, ema_trends = tradingEngine.determine_overall_trend()
+
+            # retrives latest added trends for live interval
+            _, rsi_trends, ema_trends = tradingEngine.group_trends[-1]
             trends=[rsi_trends, ema_trends]
             short_term_trend = tradingEngine.determine_overall_trend()["group_trends"]["short_term"]
             mid_term_trend = tradingEngine.determine_overall_trend()["group_trends"]["mid_term"]
             
-            # print(trends)
+            #add the latest price point and metrics to the plotter
             plotter.add_price_point(historical_data["data"]["items"][i], action, short_term_trend,mid_term_trend)
-
-            
-            # print(f"current metrics: {tradingEngine.metrics[-1]}")
             # plotter.plot_live()
             
         print(f"current balance: {portfolio.holdings['USDC']}")
         plotter.plot_static()
-        
-        
         
     else:
         print("Failed to fetch data.")
