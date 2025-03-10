@@ -5,9 +5,9 @@ from actions.tradingEngine import TradingEngine
 from actions.testing_portfolio import TestingPortfolio as Portfolio
 
 #global variables for testing
-TOKEN_ADDRESS = "H4phNbsqjV5rqk8u6FUACTLB6rNZRTAPGnBb8KXJpump"
-INTERVAL = "30m"    # birdeye fetching max 1000 data points of historic data
-SPAN_IN_DAYS = 25
+TOKEN_ADDRESS = "47NF9q76FaLAbZQmBaHeeUWYsEn4Rt4qjmh1oACipump"
+INTERVAL = "5m"    # birdeye fetching max 1000 data points of historic data
+SPAN_IN_DAYS = 3
 TESTING_PORT_BALANCE = 100
 
 
@@ -37,8 +37,12 @@ if __name__ == "__main__":
             action = tradingEngine.check_for_trading_action(TOKEN_ADDRESS)
             _, rsi_trends, ema_trends = tradingEngine.determine_overall_trend()
             trends=[rsi_trends, ema_trends]
+            short_term_trend = tradingEngine.determine_overall_trend()["group_trends"]["short_term"]
+            mid_term_trend = tradingEngine.determine_overall_trend()["group_trends"]["mid_term"]
+            
             # print(trends)
-            plotter.add_price_point(historical_data["data"]["items"][i], action)
+            plotter.add_price_point(historical_data["data"]["items"][i], action, short_term_trend,mid_term_trend)
+
             
             # print(f"current metrics: {tradingEngine.metrics[-1]}")
             # plotter.plot_live()

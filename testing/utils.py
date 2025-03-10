@@ -51,7 +51,7 @@ def find_starting_point(historical_data, interval):
     if not available_intervals:
         raise ValueError("Not enough data points to calculate RSI with any reasonable interval.")
     
-    best_interval = available_intervals[-1]  # Choose the largest usable interval
+    best_interval = available_intervals[-2]  # Choose the largest usable interval
     step_size = period_counts[best_interval] // period_counts[interval]
     starting_index = min(15 * step_size, total_points - 1) + 50
 

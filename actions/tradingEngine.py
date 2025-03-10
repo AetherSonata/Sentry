@@ -9,7 +9,7 @@ SELL_PERCENTAGE = 1         # 100% of holding when selling
 STOP_LOSS_PERCENTAGE_LOW = 0.95  # 5% below current price
 STOP_LOSS_PERCENTAGE_HIGH = 0.98 # 3% below current price
 TAKE_PROFIT_PERCENTAGE = 1.07    # 10% above current price
-
+TREND_LOOKBACK = 5
 SOL_MINT_ADDRESS = "So11111111111111111111111111111111111111112"
 
 class TradingEngine:
@@ -27,7 +27,7 @@ class TradingEngine:
     
     def initialize_prior_metrics(self):
         # Initialize the metric analyzer with historical price data  
-        lookback = 5
+        lookback = TREND_LOOKBACK
         for i in range(lookback):
             lookback -= 1
             self.metric_analyzer.update_price_data(self.price_data[:(len(self.price_data) - lookback )])  
@@ -196,9 +196,9 @@ class TradingEngine:
                 avg_ema_trend = Counter(ema_signal_list).most_common(1)[0][0] if ema_signal_list else None
 
                 # Final group trend determination
-                if avg_rsi_trend == "bullish" and avg_ema_trend == "bullish" and golden_cross == 1:
+                if avg_rsi_trend == "bullish" and avg_ema_trend == "bullish" : #TODO implement golden cross +1/-1 logic ( maybe better for takeprofit and size setting)
                     group_trends[group_name] = "bullish"
-                elif avg_rsi_trend == "bearish" and avg_ema_trend == "bearish" and golden_cross == -1:
+                elif avg_rsi_trend == "bearish" and avg_ema_trend == "bearish" :
                     group_trends[group_name] = "bearish"
                 else:
                     group_trends[group_name] = "neutral"
@@ -215,7 +215,7 @@ class TradingEngine:
             "votes": votes
         } 
 
-    def determine_trend_over_time(self, metric_key, compare_key=None, lookback=5):
+    def determine_trend_over_time(self, metric_key, compare_key=None, lookback=TREND_LOOKBACK):
         """Analyze RSI or EMA over the last `lookback` data points to determine trend direction over time."""
         
         if len(self.metrics) < lookback:
