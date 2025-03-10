@@ -2,7 +2,7 @@ class TestingPortfolio:
     def __init__(self):
         # Initial holdings: Starting with 100 USDC balance
         self.holdings = {
-            'USDC': 100  # Key for USDC holdings
+            'USDC': 10000  # Key for USDC holdings
         }  # Dictionary to store token holdings (token_symbol: amount)
         self.trade_history = []  # List to store buy/sell transactions
 

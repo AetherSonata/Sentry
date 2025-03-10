@@ -51,33 +51,39 @@ class TradingEngine:
             # If we have an active position, check for exit or to add to the position
             if self.check_if_sell_signal(self.active_position, current_price):
                 # Sell the entire position
-                if self.portfolio.sell(token_address, self.active_position["amount"], current_price, slippage=SLIPPAGE_PERCENTAGE):
-                    action = "SOLD"
-                    self.active_position = None
-                else:
-                    action = "SELLING_ERROR"
-            elif self.check_if_add_to_position(self.active_position, current_price):
-                # Buy additional tokens (averaging down) while keeping the initial stop loss range
-                additional_amount = self.calculate_buy_amount(current_price)
-                if additional_amount > 0 and self.portfolio.buy(token_address, current_price, additional_amount, slippage=SLIPPAGE_PERCENTAGE):
-                    # Calculate the new weighted average entry price
-                    old_amount = self.active_position["amount"]
-                    old_avg = self.active_position["avg_entry"]
-                    # For buy orders, slippage increases the effective price paid:
-                    adjusted_price = current_price * (1 + SLIPPAGE_PERCENTAGE)
-                    new_total_amount = old_amount + additional_amount
-                    new_avg = ((old_avg * old_amount) + (adjusted_price * additional_amount)) / new_total_amount
-                    self.active_position["avg_entry"] = new_avg
-                    self.active_position["amount"] = new_total_amount
-                    # Keep the original stop loss range unchanged
-                    action = "ADDED"
-                else:
-                    action = "ADDING_ERROR"
-            else:
-                action = "HOLD"
+
+                action="SOLD"
+
+                # if self.portfolio.sell(token_address, self.active_position["amount"], current_price, slippage=SLIPPAGE_PERCENTAGE):
+                #     action = "SOLD"
+                #     self.active_position = None
+                # else:
+                #     action = "SELLING_ERROR"
+
+
+
+            # elif self.check_if_add_to_position(self.active_position, current_price):
+            #     # Buy additional tokens (averaging down) while keeping the initial stop loss range
+            #     additional_amount = self.calculate_buy_amount(current_price)
+            #     if additional_amount > 0 and self.portfolio.buy(token_address, current_price, additional_amount, slippage=SLIPPAGE_PERCENTAGE):
+            #         # Calculate the new weighted average entry price
+            #         old_amount = self.active_position["amount"]
+            #         old_avg = self.active_position["avg_entry"]
+            #         # For buy orders, slippage increases the effective price paid:
+            #         adjusted_price = current_price * (1 + SLIPPAGE_PERCENTAGE)
+            #         new_total_amount = old_amount + additional_amount
+            #         new_avg = ((old_avg * old_amount) + (adjusted_price * additional_amount)) / new_total_amount
+            #         self.active_position["avg_entry"] = new_avg
+            #         self.active_position["amount"] = new_total_amount
+            #         # Keep the original stop loss range unchanged
+            #         action = "ADDED"
+            #     else:
+            #         action = "ADDING_ERROR"
+            # else:
+            #     action = "HOLD"
         else:
             # No active position: check for a buy signal
-            if self.check_if_buy_signal(current_price):
+            if self.check_if_buy_signal():
                 buy_amount = self.calculate_buy_amount(current_price)
                 if buy_amount > 0 and self.portfolio.buy(token_address, current_price, buy_amount, slippage=SLIPPAGE_PERCENTAGE):
                     # Open a new active position using the slippage-adjusted entry price
@@ -96,18 +102,23 @@ class TradingEngine:
         # print(action)
         return action
 
-    def check_if_buy_signal(self, current_price):
+    def check_if_buy_signal(self):
+        # wait for the first live indexes before calculating
+        if len(self.metrics) < 60:                                  # TODO remove test variable
+            return False
         # get latest metrics
-        current_metrics = self.metrics[-1]
-        # Check if RSI is below 30 (oversold)
-        if current_metrics.get(f"RSI_15m", 0) < 30 and current_metrics.get(f"RSI_1H", 0) < 30:
-            return True
+        if self.confirm_short_mid_ema_change():
+            if self.confirm_short_term_dip():
+                return True
+            else:
+                return False
+        return False
+
         
 
     def check_if_sell_signal(self, position, current_price):
-        # Sell if the price is above take profit or below the lower bound of the stop loss range
-        stop_loss_lower, _ = position["stop_loss_range"]
-        if current_price >= position["take_profit"] or current_price <= stop_loss_lower:
+        # check if price action is near short term rsi peak
+        if self.confirm_small_short_term_peak():
             return True
         return False
 
@@ -128,7 +139,7 @@ class TradingEngine:
         adjusted_price = current_price * (1 + SLIPPAGE_PERCENTAGE)
         buy_amount = buy_total_in_usd / adjusted_price
         # print(f"💰 Spending ${buy_total_in_usd:.2f} at adjusted price ${adjusted_price:.2f} per token; tokens received: {buy_amount:.6f}")
-        return buy_amount if buy_amount > 0 else 0
+        return 0.001 if buy_amount > 0 else 0
 
     def calculate_sell_amount(self, token_address):
         available_tokens = self.portfolio.holdings.get(token_address, 0)
@@ -145,7 +156,6 @@ class TradingEngine:
         # Use global constant for take profit percentage
         return current_price * TAKE_PROFIT_PERCENTAGE
     
-
 
     def determine_overall_trend(self):
         """Determine overall trend by incorporating both RSI, smaller EMAs, and the 200-EMA confirmation (Golden Cross/Death Cross). """
@@ -242,7 +252,7 @@ class TradingEngine:
 
 
 
-    def confirm_short_mid_ema_change(self, trend_confirmation_lookback=5, trend_confirmation_threshold=1):
+    def confirm_short_mid_ema_change(self, trend_confirmation_lookback=8, trend_confirmation_threshold=6):
         """
         Checks the past `trend_confirmation_lookback` number of group EMA/RSI trends.
         If both short-term and mid-term trends are 'neutral' in at least `trend_confirmation_threshold` intervals, returns True.
@@ -321,7 +331,12 @@ class TradingEngine:
         return {"count": count, "total": total}
 
 
-    def count_rsi_passing_threshold_for_groups(self, short_term=True, mid_term=True, long_term=True, direction="below"):
+    def count_rsi_passing_threshold_for_groups(
+            self, short_term=True, mid_term=True, long_term=True, 
+            short_term_rsi_lookback=5, mid_term_rsi_lookback=5, long_term_rsi_lookback=5,
+            short_term_rsi_threshold=30, mid_term_rsi_threshold=50, long_term_rsi_threshold=70, 
+            short_term_group_intervals=["1m", "5m", "15m"],
+            direction="below"):
         """
         Uses the generic confirm_group_rsi_threshold method for different RSI analysis groups.
 
@@ -345,35 +360,83 @@ class TradingEngine:
 
         if short_term:
             results["short_term"] = self.confirm_group_rsi_threshold(
-                group_intervals=["1m", "5m", "15m"],
-                trend_confirmation_lookback=5,
-                rsi_threshold=30,
+                group_intervals= short_term_group_intervals,  # "15m" removed for testing
+                trend_confirmation_lookback=short_term_rsi_lookback,
+                rsi_threshold=short_term_rsi_threshold,
                 direction=direction
             )
-            print("Short-term RSI result:", results["short_term"])
+            # print("Short-term RSI result:", results["short_term"])
 
         if mid_term:
             results["mid_term"] = self.confirm_group_rsi_threshold(
                 group_intervals=["30m", "1h", "4h"],
-                trend_confirmation_lookback=5,
-                rsi_threshold=50,
+                trend_confirmation_lookback=mid_term_rsi_lookback,
+                rsi_threshold=mid_term_rsi_threshold,
                 direction=direction
             )
-            print("Mid-term RSI result:", results["mid_term"])
+            # print("Mid-term RSI result:", results["mid_term"])
 
         if long_term:
             results["long_term"] = self.confirm_group_rsi_threshold(
                 group_intervals=["12h", "1d", "3d", "1w"],
-                trend_confirmation_lookback=5,
-                rsi_threshold=70,
+                trend_confirmation_lookback=long_term_rsi_lookback,
+                rsi_threshold=long_term_rsi_threshold,
                 direction=direction
             )
-            print("Long-term RSI result:", results["long_term"])
+            # print("Long-term RSI result:", results["long_term"])
 
         return results
 
 
-    def confirm_rsi_oversold():
-        pass
-
+    # inspects the historical rsi data of short term and mid term and confirms if there was a short term dip,
+    # indicating a coming upward movement in the mid term
+    # WORKS ONLY IF SMALLEST INTERVAL IS 15 minutes !!! 
+    def confirm_short_term_dip(self):
+        rsi_group_data = self.count_rsi_passing_threshold_for_groups(
+            short_term=True, mid_term=True, long_term=False,
+            short_term_rsi_lookback=10, mid_term_rsi_lookback=5, long_term_rsi_lookback=5,
+            short_term_rsi_threshold=30, mid_term_rsi_threshold=50, long_term_rsi_threshold=70, 
+            short_term_group_intervals=["1m", "5m"],
+            direction="below")
         
+        if rsi_group_data is not None:
+            if rsi_group_data["short_term"]["count"] > 0 and rsi_group_data["mid_term"]["count"] > 3:
+                return True
+            else:
+                return False
+            
+
+
+    # sells on OVERBOUGH rsi values in more mid term
+    def confirm_max_short_term_peak(self):
+        rsi_group_data = self.count_rsi_passing_threshold_for_groups(
+            short_term=True, mid_term=True, long_term=False,
+            short_term_rsi_lookback=5, mid_term_rsi_lookback=5, long_term_rsi_lookback=5,
+            short_term_rsi_threshold=80, mid_term_rsi_threshold=65, long_term_rsi_threshold=70,
+            short_term_group_intervals=["1m", "5m", "15"],
+            direction="above")
+        
+        if rsi_group_data is not None:
+            if rsi_group_data["short_term"]["count"] > 2 and rsi_group_data["mid_term"]["count"] > 0:
+                return True
+            else:
+                return False
+    
+    # sells on a safe profit
+    def confirm_small_short_term_peak(self):
+        rsi_group_data = self.count_rsi_passing_threshold_for_groups(
+            short_term=True, mid_term=True, long_term=False,
+            short_term_rsi_lookback=5, mid_term_rsi_lookback=5, long_term_rsi_lookback=5,
+            short_term_rsi_threshold=78, mid_term_rsi_threshold=60, long_term_rsi_threshold=70,
+            short_term_group_intervals=["1m", "5m", "15"],
+            direction="above")
+        
+        if rsi_group_data is not None:
+            if rsi_group_data["short_term"]["count"] > 2 and rsi_group_data["mid_term"]["count"] > 1:
+                return True
+            else:
+                return False    
+            
+
+
+            

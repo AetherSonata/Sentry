@@ -6,6 +6,9 @@ from datetime import datetime
 SHORT_TERM_TREND_OFFSET = 0.2 
 MID_TERM_TREND_OFFSET = 0.45
 
+BOUGHT_OFFSET = 1.25
+SOLD_OFFSET = 1.25
+
 
 
 class PricePlotter:
@@ -49,10 +52,12 @@ class PricePlotter:
                 color = "green"
                 s = 150
                 alpha = 1
+                price = price * BOUGHT_OFFSET
             elif action == "SOLD":
                 color = "red"
                 s = 150
                 alpha = 1
+                price = price * SOLD_OFFSET
             else:
                 color = "gray"  # Default for newly added points with no action
                 s = 50
@@ -123,10 +128,12 @@ class PricePlotter:
                 color = "green"
                 s = 150
                 alpha = 1
+                price = price * BOUGHT_OFFSET
             elif action == "SOLD":
                 color = "red"
                 s = 150
                 alpha = 1
+                price = price * SOLD_OFFSET
             else:
                 color = "gray"  # Default for newly added points with no action
                 s = 50
@@ -153,7 +160,7 @@ class PricePlotter:
         # Format the plot
         self.ax.set_xlabel("Time (UTC)")
         self.ax.set_ylabel("Price")
-        self.ax.set_title(f"Price Action Over Time ({self.interval} Interval)")
+        self.ax.set_title(f" ({self.interval} Interval)")
         self.ax.tick_params(axis='x', rotation=45)
         self.ax.xaxis.set_major_locator(mdates.AutoDateLocator())
         self.ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M\n%d-%b"))
