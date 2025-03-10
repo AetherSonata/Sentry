@@ -15,7 +15,7 @@ if __name__ == "__main__":
 
     #if data cant be read from file, fetch it from API
     try:
-        historical_data = load_historical_price()
+        historical_data = load_historical_price(filename= f"histocal_price_data_{TOKEN_ADDRESS}_{INTERVAL}.json")
     except Exception as e:
         print(f"Error loading data: {e}")
     
@@ -23,7 +23,7 @@ if __name__ == "__main__":
         historical_data = get_historical_test_data(TOKEN_ADDRESS, INTERVAL, SPAN_IN_DAYS)
         print("Data fetched from API.")
         try:
-            save_historical_price(historical_data)
+            save_historical_price(historical_data, filename= f"histocal_price_data_{TOKEN_ADDRESS}_{INTERVAL}.json")
         except Exception as e:
             print(f"Error saving data: {e}")
     else:
