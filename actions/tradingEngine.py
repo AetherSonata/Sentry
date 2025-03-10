@@ -95,8 +95,12 @@ class TradingEngine:
                         "take_profit": self.calculate_take_profit(current_price)
                     }
                     action = "BOUGHT"
+                    self.active_position=None
+                    
                 else:
                     action = "BUYING_ERROR"
+            elif self.check_if_sell_signal(self.active_position, current_price):
+                action = "SOLD"
             else:
                 action = "NONE"
         # print(action)
@@ -278,129 +282,124 @@ class TradingEngine:
 
         return False  # Not enough neutral trends
     
-    def confirm_group_rsi_threshold(self, group_intervals, trend_confirmation_lookback=5, 
+    def confirm_group_rsi_threshold(self, interval_weights=None, trend_confirmation_lookback=5, 
                                     rsi_threshold=30, direction="below", trend_confirmation_threshold=None):
         """
         Analyzes the last `trend_confirmation_lookback` snapshots in self.metrics for RSI values 
-        from the specified group intervals.
-        
-        For each snapshot, it computes the average RSI across available intervals in the group.
-        It then counts how many snapshots have an average RSI that meets the condition:
-        - If direction == "below", snapshot counts if average RSI < rsi_threshold.
-        - If direction == "above", snapshot counts if average RSI > rsi_threshold.
-        
-        If no snapshots contain any RSI data for the group, it prints a warning.
-        
-        :param group_intervals: List of intervals for the group (e.g. ["1m", "5m", "15m"]).
+        using weighted intervals.
+
+        :param interval_weights: Dictionary of intervals and their corresponding weights (e.g., {"1m": 1, "5m": 2}).
         :param trend_confirmation_lookback: Number of recent metric snapshots to examine.
         :param rsi_threshold: RSI threshold value.
-        :param direction: "below" or "above" to check whether the average RSI is below or above the threshold.
+        :param direction: "below" or "above" to check whether the weighted RSI average meets the condition.
         :param trend_confirmation_threshold: (Optional) Minimum number of snapshots required to meet the condition.
         :return: Dictionary with keys 'count' and 'total' representing the number of snapshots meeting the condition and the total snapshots evaluated.
         """
-        # Ensure there are enough snapshots
+        if interval_weights is None:
+            interval_weights = {"1m": 1, "5m": 1, "15m": 1}  # Default if none provided
+
         if len(self.metrics) < trend_confirmation_lookback:
             print("Not enough snapshots for calculation of group")
             return {"count": 0, "total": 0}
-        
+
         count = 0
         total = 0
-        # Iterate over the last trend_confirmation_lookback snapshots in self.metrics
+
         for snapshot in self.metrics[-trend_confirmation_lookback:]:
-            # Extract RSI values for the intervals in the group (if available)
-            rsi_values = [snapshot.get(f"RSI_{interval}") for interval in group_intervals 
-                        if snapshot.get(f"RSI_{interval}") is not None]
-            if not rsi_values:
-                continue  # Skip this snapshot if no RSI data is available for the group
-            avg_rsi = sum(rsi_values) / len(rsi_values)
+            weighted_sum = 0
+            total_weight = 0
+
+            for interval, weight in interval_weights.items():
+                rsi_value = snapshot.get(f"RSI_{interval}")
+                if rsi_value is not None:  # Only include available data
+                    weighted_sum += rsi_value * weight
+                    total_weight += weight
+
+            if total_weight == 0:  # No valid RSI data in this snapshot
+                continue
+
+            avg_rsi = weighted_sum / total_weight  # Compute weighted RSI average
             total += 1
-            
-            if direction == "below" and avg_rsi < rsi_threshold:
-                count += 1
-            elif direction == "above" and avg_rsi > rsi_threshold:
+
+            if (direction == "below" and avg_rsi < rsi_threshold) or (direction == "above" and avg_rsi > rsi_threshold):
                 count += 1
 
         if total == 0:
             print("Not enough data points for calculation of group")
-        
-        # Optionally, enforce a minimum threshold count if provided
+
         if trend_confirmation_threshold is not None and count < trend_confirmation_threshold:
-            # Return the counts so you know it didn't meet the threshold
             return {"count": count, "total": total}
-        
+
         return {"count": count, "total": total}
 
 
-    def count_rsi_passing_threshold_for_groups(
-            self, short_term=True, mid_term=True, long_term=True, 
-            short_term_rsi_lookback=5, mid_term_rsi_lookback=5, long_term_rsi_lookback=5,
-            short_term_rsi_threshold=30, mid_term_rsi_threshold=50, long_term_rsi_threshold=70, 
-            short_term_group_intervals=["1m", "5m", "15m"],
-            direction="below"):
+    def count_rsi_passing_threshold_for_groups(self, short_term=True, mid_term=True, long_term=True, 
+                                            short_term_rsi_lookback=5, mid_term_rsi_lookback=5, long_term_rsi_lookback=5,
+                                            short_term_rsi_threshold=30, mid_term_rsi_threshold=50, long_term_rsi_threshold=70, 
+                                            short_term_interval_weights=None, mid_term_interval_weights=None, long_term_interval_weights=None,
+                                            direction="below"):
         """
-        Uses the generic confirm_group_rsi_threshold method for different RSI analysis groups.
-
-        Groups:
-        - Short-term RSI (1m, 5m, 15m) checks if the average RSI is below 30.
-        - Mid-term RSI (30m, 1h, 4h) checks if the average RSI is below 50.
-        - Long-term RSI (12h, 1d, 3d, 1w) checks if the average RSI is below 70.
-
-        The function allows enabling/disabling each group using the parameters.
+        Uses confirm_group_rsi_threshold with weighted RSI calculations.
 
         :param short_term: Whether to calculate short-term RSI.
         :param mid_term: Whether to calculate mid-term RSI.
         :param long_term: Whether to calculate long-term RSI.
-        :return: Dictionary with results for all groups (disabled ones return None).
+        :param short_term_interval_weights: Dictionary of intervals and weights for short-term RSI.
+        :param mid_term_interval_weights: Dictionary of intervals and weights for mid-term RSI.
+        :param long_term_interval_weights: Dictionary of intervals and weights for long-term RSI.
+        :return: Dictionary with results for all groups (disabled ones are excluded).
         """
-        results = {
-            "short_term": None,
-            "mid_term": None,
-            "long_term": None
-        }
+        results = {}
 
         if short_term:
             results["short_term"] = self.confirm_group_rsi_threshold(
-                group_intervals= short_term_group_intervals,  # "15m" removed for testing
+                interval_weights=short_term_interval_weights or {"1m": 1, "5m": 1, "15m": 1},
                 trend_confirmation_lookback=short_term_rsi_lookback,
                 rsi_threshold=short_term_rsi_threshold,
                 direction=direction
             )
-            # print("Short-term RSI result:", results["short_term"])
 
         if mid_term:
             results["mid_term"] = self.confirm_group_rsi_threshold(
-                group_intervals=["30m", "1h", "4h"],
+                interval_weights=mid_term_interval_weights or {"30m": 1, "1h": 1, "4h": 1},
                 trend_confirmation_lookback=mid_term_rsi_lookback,
                 rsi_threshold=mid_term_rsi_threshold,
                 direction=direction
             )
-            # print("Mid-term RSI result:", results["mid_term"])
 
         if long_term:
             results["long_term"] = self.confirm_group_rsi_threshold(
-                group_intervals=["12h", "1d", "3d", "1w"],
+                interval_weights=long_term_interval_weights or {"12h": 1, "1d": 1, "3d": 1, "1w": 1},
                 trend_confirmation_lookback=long_term_rsi_lookback,
                 rsi_threshold=long_term_rsi_threshold,
                 direction=direction
             )
-            # print("Long-term RSI result:", results["long_term"])
 
         return results
+
 
 
     # inspects the historical rsi data of short term and mid term and confirms if there was a short term dip,
     # indicating a coming upward movement in the mid term
     # WORKS ONLY IF SMALLEST INTERVAL IS 15 minutes !!! 
     def confirm_short_term_dip(self):
-        rsi_group_data = self.count_rsi_passing_threshold_for_groups(
-            short_term=True, mid_term=True, long_term=False,
-            short_term_rsi_lookback=10, mid_term_rsi_lookback=5, long_term_rsi_lookback=5,
-            short_term_rsi_threshold=30, mid_term_rsi_threshold=50, long_term_rsi_threshold=70, 
-            short_term_group_intervals=["1m", "5m"],
-            direction="below")
+        short_term_data = self.confirm_group_rsi_threshold(
+            interval_weights={"1m": 1, "5m": 1},
+            trend_confirmation_lookback=10,
+            rsi_threshold=30,
+            direction="below"
+        )
         
-        if rsi_group_data is not None:
-            if rsi_group_data["short_term"]["count"] > 0 and rsi_group_data["mid_term"]["count"] > 3:
+        mid_term_data = self.confirm_group_rsi_threshold(
+            interval_weights={"15m": 1, "30m": 1, "1h": 1},
+            trend_confirmation_lookback=5,
+            rsi_threshold=50,
+            direction="below"
+        )
+        
+
+        if short_term_data is not None and mid_term_data is not None:
+            if short_term_data["count"] > 0 and mid_term_data["count"] > 3:
                 return True
             else:
                 return False
@@ -408,31 +407,42 @@ class TradingEngine:
 
 
     # sells on OVERBOUGH rsi values in more mid term
-    def confirm_max_short_term_peak(self):
-        rsi_group_data = self.count_rsi_passing_threshold_for_groups(
-            short_term=True, mid_term=True, long_term=False,
-            short_term_rsi_lookback=5, mid_term_rsi_lookback=5, long_term_rsi_lookback=5,
-            short_term_rsi_threshold=80, mid_term_rsi_threshold=65, long_term_rsi_threshold=70,
-            short_term_group_intervals=["1m", "5m", "15"],
-            direction="above")
+        short_term_data = self.confirm_group_rsi_threshold(
+            interval_weights={"1m": 1, "5m": 1, "15m": 1},
+            trend_confirmation_lookback=5,
+            rsi_threshold=80,
+            direction="above"
+        )
         
-        if rsi_group_data is not None:
-            if rsi_group_data["short_term"]["count"] > 2 and rsi_group_data["mid_term"]["count"] > 0:
+        mid_term_data = self.confirm_group_rsi_threshold(
+            interval_weights={"15m": 1, "30m": 1, "1h": 1},
+            trend_confirmation_lookback=5,
+            rsi_threshold=65,
+            direction="above"
+        )
+        if short_term_data is not None and mid_term_data is not None:
+            if short_term_data["count"] > 2 and mid_term_data["count"] > 0:
                 return True
             else:
                 return False
     
     # sells on a safe profit
     def confirm_small_short_term_peak(self):
-        rsi_group_data = self.count_rsi_passing_threshold_for_groups(
-            short_term=True, mid_term=True, long_term=False,
-            short_term_rsi_lookback=5, mid_term_rsi_lookback=5, long_term_rsi_lookback=5,
-            short_term_rsi_threshold=78, mid_term_rsi_threshold=60, long_term_rsi_threshold=70,
-            short_term_group_intervals=["1m", "5m", "15"],
-            direction="above")
+        short_term_data = self.confirm_group_rsi_threshold(
+            interval_weights={"1m": 1, "5m": 1, "15m": 1},
+            trend_confirmation_lookback=5,
+            rsi_threshold=78,
+            direction="above"
+        )
         
-        if rsi_group_data is not None:
-            if rsi_group_data["short_term"]["count"] > 2 and rsi_group_data["mid_term"]["count"] > 1:
+        mid_term_data = self.confirm_group_rsi_threshold(
+            interval_weights={"15m": 1, "30m": 1, "1h": 1},
+            trend_confirmation_lookback=5,
+            rsi_threshold=60,
+            direction="above"
+        )
+        if short_term_data and mid_term_data is not None:
+            if short_term_data["count"] > 2 and mid_term_data["count"] > 1:
                 return True
             else:
                 return False    
