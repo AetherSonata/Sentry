@@ -6,9 +6,11 @@ from datetime import datetime
 SHORT_TERM_TREND_OFFSET = 0.2 
 MID_TERM_TREND_OFFSET = 0.45
 
-BOUGHT_OFFSET = 1.25
-SOLD_OFFSET = 1.25
+BOUGHT_OFFSET = 2
+SOLD_OFFSET = 2
 
+SHORT_TERM_ALPHA = 0.5
+MID_TERM_ALPHA = 0.5
 
 
 class PricePlotter:
@@ -144,18 +146,18 @@ class PricePlotter:
 
             if short_term_trends == "bullish":
                 # Green point below the price
-                self.ax.scatter(time, price - SHORT_TERM_TREND_OFFSET * price, color="green", s=50, alpha=0.7)
+                self.ax.scatter(time, price - SHORT_TERM_TREND_OFFSET * price, color="green", s=50, alpha=SHORT_TERM_ALPHA)
             elif short_term_trends == "bearish":
                 # Red point below the price
-                self.ax.scatter(time, price - SHORT_TERM_TREND_OFFSET * price, color="red", s=50, alpha=0.7) 
+                self.ax.scatter(time, price - SHORT_TERM_TREND_OFFSET * price, color="red", s=50, alpha=SHORT_TERM_ALPHA) 
 
             # Draw an additional point based on the trend
             if mid_term_trends == "bullish":
                 # Green point below the price
-                self.ax.scatter(time, price - MID_TERM_TREND_OFFSET * price, color="green", s=50, alpha=0.7)
+                self.ax.scatter(time, price - MID_TERM_TREND_OFFSET * price, color="green", s=50, alpha=MID_TERM_ALPHA)
             elif mid_term_trends == "bearish":
                 # Red point below the price
-                self.ax.scatter(time, price - MID_TERM_TREND_OFFSET * price, color="red", s=50, alpha=0.7)
+                self.ax.scatter(time, price - MID_TERM_TREND_OFFSET * price, color="red", s=50, alpha=MID_TERM_ALPHA)
 
         # Format the plot
         self.ax.set_xlabel("Time (UTC)")

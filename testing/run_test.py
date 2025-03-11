@@ -35,6 +35,10 @@ if __name__ == "__main__":
         starting_index, max_interval = find_starting_point(historical_data["data"]["items"], INTERVAL)
         print(f"Starting index: {starting_index}, Max interval: {max_interval}")
 
+
+        #TODO for testing purposes:
+        starting_index, max_interval = 0, "1w"
+
         #initialize portfolio with starting balance
         portfolio = Portfolio()
         
@@ -53,6 +57,7 @@ if __name__ == "__main__":
             # retrives latest added trends for live interval
             _, rsi_trends, ema_trends = tradingEngine.group_trends[-1]
             trends=[rsi_trends, ema_trends]
+            
             short_term_trend = tradingEngine.determine_overall_trend()["group_trends"]["short_term"]
             mid_term_trend = tradingEngine.determine_overall_trend()["group_trends"]["mid_term"]
             

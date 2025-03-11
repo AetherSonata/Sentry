@@ -37,7 +37,8 @@ class TradingEngine:
 
     def check_for_trading_action(self, token_address):
         # Calculate max interval RSI for the latest price data
-        _, max_interval = find_starting_point(self.price_data, self.interval)
+        
+        # _, max_interval = find_starting_point(self.price_data, self.interval)
         # Append the latest RSI calculation
         self.metric_analyzer.update_price_data(self.price_data)
         self.metrics.append(self.metric_analyzer.calculate_metrics_for_intervals())
@@ -163,11 +164,22 @@ class TradingEngine:
 
     def determine_overall_trend(self):
         """Determine overall trend by incorporating both RSI, smaller EMAs, and the 200-EMA confirmation (Golden Cross/Death Cross). """
-        
-        if not self.metrics:
-            return {"group_trends": {}, "overall_trend": "no data", "votes": {}}
+
+        if not self.metrics:  # This ensures self.metrics is not None or empty
+            return {
+                "group_trends": {"short_term": None, "mid_term": None, "long_term": None},
+                "overall_trend": "no data",
+                "votes": {}
+            }
 
         metrics = self.metrics[-1]  # Latest metrics
+
+        if metrics is None:  # Additional check in case metrics list contains None
+            return {
+                "group_trends": {"short_term": None, "mid_term": None, "long_term": None},
+                "overall_trend": "no data",
+                "votes": {}
+            }
 
         # Define groups of intervals
         groups = {
@@ -189,14 +201,15 @@ class TradingEngine:
                 ema200_key = f"200-Point-EMA_{interval}"
 
                 # Time-based trend determination
-                rsi_trend = self.determine_trend_over_time(rsi_key) if rsi_key in metrics else None
-                ema_trend = self.determine_trend_over_time(ema15_key, ema50_key) if ema15_key in metrics and ema50_key in metrics else None
+                if rsi_key in metrics and metrics[rsi_key] is not None:
+                    rsi_trend = self.determine_trend_over_time(rsi_key)
+                    if rsi_trend is not None:
+                        rsi_list.append(rsi_trend)
 
-                # Store trend signals
-                if rsi_trend:
-                    rsi_list.append(rsi_trend)
-                if ema_trend:
-                    ema_signal_list.append(ema_trend)
+                if ema15_key in metrics and ema50_key in metrics:
+                    ema_trend = self.determine_trend_over_time(ema15_key, ema50_key)
+                    if ema_trend is not None:
+                        ema_signal_list.append(ema_trend)
 
                 # Check for Golden Cross / Death Cross
                 if ema200_key in metrics and ema15_key in metrics:
@@ -212,14 +225,18 @@ class TradingEngine:
                 avg_ema_trend = Counter(ema_signal_list).most_common(1)[0][0] if ema_signal_list else None
 
                 # Final group trend determination
-                if avg_rsi_trend == "bullish" and avg_ema_trend == "bullish" : #TODO implement golden cross +1/-1 logic ( maybe better for takeprofit and size setting)
+                if avg_rsi_trend == "bullish" and avg_ema_trend == "bullish":
                     group_trends[group_name] = "bullish"
-                elif avg_rsi_trend == "bearish" and avg_ema_trend == "bearish" :
+                elif avg_rsi_trend == "bearish" and avg_ema_trend == "bearish":
                     group_trends[group_name] = "bearish"
                 else:
                     group_trends[group_name] = "neutral"
             else:
-                group_trends[group_name] = "no data"
+                group_trends[group_name] = None  # Return None if no valid data to calculate trend
+
+        # If no group trends could be determined, return None for each group
+        if not group_trends:
+            group_trends = {"short_term": None, "mid_term": None, "long_term": None}
 
         # Determine overall trend by majority vote
         votes = Counter(group_trends.values())
@@ -229,7 +246,9 @@ class TradingEngine:
             "group_trends": group_trends,
             "overall_trend": overall_trend,
             "votes": votes
-        } 
+        }
+
+
 
     def determine_trend_over_time(self, metric_key, compare_key=None, lookback=TREND_LOOKBACK):
         """Analyze RSI or EMA over the last `lookback` data points to determine trend direction over time."""
@@ -237,15 +256,15 @@ class TradingEngine:
         if len(self.metrics) < lookback:
             return "insufficient data"
 
-        # Extract metric values over `lookback` period
-        values = [entry.get(metric_key) for entry in self.metrics[-lookback:] if entry.get(metric_key) is not None]
+        # Extract metric values over `lookback` period, skipping None entries
+        values = [entry.get(metric_key) for entry in self.metrics[-lookback:] if entry is not None and entry.get(metric_key) is not None]
 
         # Ensure there are enough valid values
         if len(values) < 2:
             return "neutral"
 
         if compare_key:
-            compare_values = [entry.get(compare_key) for entry in self.metrics[-lookback:] if entry.get(compare_key) is not None]
+            compare_values = [entry.get(compare_key) for entry in self.metrics[-lookback:] if entry is not None and entry.get(compare_key) is not None]
 
             if len(compare_values) < 2:
                 return "neutral"
@@ -299,13 +318,15 @@ class TradingEngine:
             interval_weights = {"1m": 1, "5m": 1, "15m": 1}  # Default if none provided
 
         if len(self.metrics) < trend_confirmation_lookback:
-            print("Not enough snapshots for calculation of group")
             return {"count": 0, "total": 0}
 
         count = 0
         total = 0
 
         for snapshot in self.metrics[-trend_confirmation_lookback:]:
+            if snapshot is None:  # Skip None snapshots
+                continue
+
             weighted_sum = 0
             total_weight = 0
 
@@ -383,6 +404,28 @@ class TradingEngine:
     # indicating a coming upward movement in the mid term
     # WORKS ONLY IF SMALLEST INTERVAL IS 15 minutes !!! 
     def confirm_short_term_dip(self):
+        short_term_data = self.confirm_group_rsi_threshold(
+            interval_weights={"1m": 1, "5m": 1},
+            trend_confirmation_lookback=10,
+            rsi_threshold=30,
+            direction="below"
+        )
+        
+        mid_term_data = self.confirm_group_rsi_threshold(
+            interval_weights={"15m": 1, "30m": 1, "1h": 1},
+            trend_confirmation_lookback=5,
+            rsi_threshold=50,
+            direction="below"
+        )
+        
+
+        if short_term_data is not None and mid_term_data is not None:
+            if short_term_data["count"] > 0 and mid_term_data["count"] > 3:
+                return True
+            else:
+                return False
+            
+    def confirm_not_falling_dip(self):
         short_term_data = self.confirm_group_rsi_threshold(
             interval_weights={"1m": 1, "5m": 1},
             trend_confirmation_lookback=10,
