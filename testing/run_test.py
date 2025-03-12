@@ -37,7 +37,7 @@ if __name__ == "__main__":
 
 
         #TODO for testing purposes:
-        starting_index, max_interval = 100, "1w"
+        starting_index, max_interval = 160, "1w"
 
         #initialize portfolio with starting balance
         portfolio = Portfolio()
