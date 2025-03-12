@@ -5,9 +5,9 @@ from actions.tradingEngine import TradingEngine
 from actions.testing_portfolio import TestingPortfolio as Portfolio
 
 #global variables for testing
-TOKEN_ADDRESS = "GYTd9XbZTfwicCV28LGkwiDF4DgpXTTAi2UeCajfpump"
-INTERVAL = "5m"    # birdeye fetching max 1000 data points of historic data
-SPAN_IN_DAYS = 21
+TOKEN_ADDRESS = "4taJ4B67sp5Tbe5CaizkVVubS39xqaMRA4TCLYZNpump"
+INTERVAL = "1m"    # birdeye fetching max 1000 data points of historic data
+SPAN_IN_DAYS = 20
 TESTING_PORT_BALANCE = 100
 
 
@@ -32,12 +32,12 @@ if __name__ == "__main__":
 
     print(f"{len(historical_data['data']['items'])} data points fetched.")
     if historical_data:
-        starting_index, max_interval = find_starting_point(historical_data["data"]["items"], INTERVAL)
-        print(f"Starting index: {starting_index}, Max interval: {max_interval}")
+        # starting_index, max_interval = find_starting_point(historical_data["data"]["items"], INTERVAL)
+        # print(f"Starting index: {starting_index}, Max interval: {max_interval}")
 
 
         #TODO for testing purposes:
-        starting_index, max_interval = 0, "1w"
+        starting_index, max_interval = 100, "1w"
 
         #initialize portfolio with starting balance
         portfolio = Portfolio()
@@ -61,8 +61,20 @@ if __name__ == "__main__":
             short_term_trend = tradingEngine.determine_overall_trend()["group_trends"]["short_term"]
             mid_term_trend = tradingEngine.determine_overall_trend()["group_trends"]["mid_term"]
             
+            if tradingEngine.chartmetrics_printed:
+                support_zones = tradingEngine.chartmetrics["support_zones"]
+                resistance_zones = tradingEngine.chartmetrics["resistance_zones"]
+                print(support_zones, resistance_zones)
+                tradingEngine.chartmetrics_printed = False
+
+             
+
+            # print(short_term_trend, mid_term_trend)
+            # print(tradingEngine.metrics[-1])
+           
+            
             #add the latest price point and metrics to the plotter
-            plotter.add_price_point(historical_data["data"]["items"][i], action, short_term_trend,mid_term_trend)
+            plotter.add_price_point(historical_data["data"]["items"][i], action, short_term_trend,mid_term_trend, support_zones, resistance_zones)
             # plotter.plot_live()
             
         print(f"current balance: {portfolio.holdings['USDC']}")

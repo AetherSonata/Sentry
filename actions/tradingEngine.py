@@ -1,4 +1,5 @@
 from analytics.price_analytics import  MetricAnalyzer
+from analytics.chart_analyzer import ChartAnalyzer
 from testing.utils import find_starting_point
 from collections import Counter
 
@@ -23,6 +24,9 @@ class TradingEngine:
         self.portfolio = portfolio
         self.metric_analyzer = MetricAnalyzer(self.interval)
 
+        self.chartmetrics = None
+        self.chartmetrics_printed = False
+
         print(len(self.price_data))
         self.initialize_prior_metrics()
     
@@ -33,6 +37,7 @@ class TradingEngine:
             lookback -= 1
             self.metric_analyzer.update_price_data(self.price_data[:(len(self.price_data) - lookback )])  
             self.metrics.append(self.metric_analyzer.calculate_metrics_for_intervals())
+        
             
 
     def check_for_trading_action(self, token_address):
@@ -44,6 +49,11 @@ class TradingEngine:
         self.metrics.append(self.metric_analyzer.calculate_metrics_for_intervals())
         self.group_trends.append(self.determine_overall_trend()) 
         
+        if self.chartmetrics is None:
+            self.chartmetrics = ChartAnalyzer(self.price_data, self.interval).analyze()
+            self.chartmetrics_printed = True
+            print("calculating metrics")
+
         current_price = self.price_data[-1]["value"]
 
         action = "NONE"
@@ -272,6 +282,53 @@ class TradingEngine:
             return "bullish" if values[-1] > compare_values[-1] else "bearish" if values[-1] < compare_values[-1] else "neutral"
 
         return "bullish" if values[-1] > values[0] else "bearish" if values[-1] < values[0] else "neutral"
+    
+    # simple DEGEN trend detection. If average price action goes up steadily -> bullish / if down -> bearish
+    def detect_short_term_trend(self):
+        """
+        Detects the short-term trend based on the latest available RSI and EMA data.
+        Returns a string representing the trend: "bullish", "bearish", or "neutral".
+        """
+        if not self.metrics:
+            return "no data"
+        
+        latest_metrics = self.metrics[-1]
+        
+        # Check if we have the necessary data
+        if "RSI_5m" not in latest_metrics or "15-Point-EMA_5m" not in latest_metrics:
+            return "no data"
+        
+        rsi = latest_metrics["RSI_5m"]
+        ema_15 = latest_metrics["15-Point-EMA_5m"]
+        
+        # Define thresholds for detecting trends
+        rsi_bullish_threshold = 55  # RSI greater than this is considered bullish
+        rsi_bearish_threshold = 45  # RSI less than this is considered bearish
+        
+        # Simple trend detection using RSI
+        if rsi > rsi_bullish_threshold:
+            rsi_trend = "bullish"
+        elif rsi < rsi_bearish_threshold:
+            rsi_trend = "bearish"
+        else:
+            rsi_trend = "neutral"
+        
+        # Define EMA trend (15-EMA rising means bullish)
+        if ema_15 > latest_metrics.get("15-Point-EMA_5m", 0):
+            ema_trend = "bullish"
+        elif ema_15 < latest_metrics.get("15-Point-EMA_5m", 0):
+            ema_trend = "bearish"
+        else:
+            ema_trend = "neutral"
+        
+        # Combine the results of RSI and EMA to decide the overall short-term trend
+        if rsi_trend == "bullish" and ema_trend == "bullish":
+            return "bullish"
+        elif rsi_trend == "bearish" and ema_trend == "bearish":
+            return "bearish"
+        else:
+            return "neutral"
+
 
 
 
@@ -345,8 +402,7 @@ class TradingEngine:
             if (direction == "below" and avg_rsi < rsi_threshold) or (direction == "above" and avg_rsi > rsi_threshold):
                 count += 1
 
-        if total == 0:
-            print("Not enough data points for calculation of group")
+            # print("Not enough data points for calculation of group")
 
         if trend_confirmation_threshold is not None and count < trend_confirmation_threshold:
             return {"count": count, "total": total}
