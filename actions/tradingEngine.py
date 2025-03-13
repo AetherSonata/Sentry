@@ -50,13 +50,15 @@ class TradingEngine:
         self.group_trends.append(self.determine_overall_trend()) 
         
         if self.chartmetrics is None:
-            self.chartmetrics = ChartAnalyzer(self.price_data, self.interval).analyze()
+            self.chartmetrics = ChartAnalyzer(self.price_data, self.interval).find_support_resistance_zones()
             self.chartmetrics_printed = True
             print("calculating metrics")
 
         current_price = self.price_data[-1]["value"]
 
         action = "NONE"
+
+        
 
         if self.active_position:
             # If we have an active position, check for exit or to add to the position

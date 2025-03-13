@@ -1,4 +1,6 @@
 import numpy as np
+import pandas as pd
+from scipy import signal as sp
 from collections import Counter
 
 class ChartAnalyzer:
@@ -6,123 +8,81 @@ class ChartAnalyzer:
         self.price_data = price_data
         self.interval = interval
         self.prices = [entry['value'] for entry in price_data]
-        
-    def calculate_average_price(self):
-        """
-        Calculate the average price depending on the chart interval and data age.
-        """
-        start_time = self.price_data[0]['unixTime']
-        end_time = self.price_data[-1]['unixTime']
-        duration_seconds = end_time - start_time
-        
-        interval_mapping = {
-            '1m': 1, '5m': 5, '15m': 15, '30m': 30, '1h': 60, '4h': 240, '12h': 720, '1d': 1440, '1w': 10080
-        }
-        
-        interval_minutes = interval_mapping.get(self.interval, 60)
-        
-        # Adjust number of data points based on duration
-        if duration_seconds <= 3600:
-            num_points = min(10, len(self.prices))
-        elif duration_seconds <= 86400:
-            num_points = min(20, len(self.prices))
-        elif duration_seconds <= 604800:
-            num_points = min(50, len(self.prices))
-        else:
-            num_points = min(100, len(self.prices))
-        
-        avg_price = np.mean(self.prices[-num_points:])
-        return avg_price
+        self.price_series = pd.Series(self.prices)
     
-
-    def _get_dynamic_window_size(self):
-        """Determine window size dynamically based on the number of price points."""
-        length = len(self.prices)
-        if length < 50:
-            return 5
-        elif length < 200:
-            return 10
-        elif length < 500:
-            return 20
-        else:
-            return 30  # Larger dataset -> bigger window
-
-    def _find_frequent_levels(self, prices):
-        """Find the most common price levels in the list."""
-        if not prices:
-            return None
-        counter = Counter(prices)
-        most_common = counter.most_common(5)  # Get top 5 most frequent prices
-        return np.mean([price for price, _ in most_common])  # Average them
-
-    def find_support_zones(self):
-        """Identify support zones and return a single averaged value for each category."""
-        window_size = self._get_dynamic_window_size()
-        support_zones = {'strong': [], 'weak': [], 'neutral': []}
-        temp_strong, temp_weak, temp_neutral = [], [], []
+    def find_support_resistance_zones(self, peak_distance=22, peak_rank_width=4, min_pivot_rank=3, max_touches=15):
+        """Identify support and resistance zones using only price points."""
         
-        # Identify local min/max
-        for i in range(len(self.prices) - window_size):
-            window = self.prices[i:i + window_size]
-            min_price = min(window)
-            max_price = max(window)
-            
-            temp_strong.append(min_price)
-            temp_weak.append(max_price)
+        # Identify resistance peaks
+        peaks, _ = sp.find_peaks(self.price_series, distance=peak_distance)
+        peak_to_rank = {peak: 0 for peak in peaks}
         
-        # Compute final values
-        support_zones['strong'] = self._find_frequent_levels(temp_strong)
-        support_zones['weak'] = self._find_frequent_levels(temp_weak)
-        support_zones['neutral'] = np.mean([support_zones['strong'], support_zones['weak']]) if support_zones['strong'] and support_zones['weak'] else None
-
-        return support_zones
-
-    def find_resistance_zones(self):
-        """Identify resistance zones and return a single averaged value for each category."""
-        window_size = self._get_dynamic_window_size()
-        resistance_zones = {'strong': [], 'weak': [], 'neutral': []}
-        temp_strong, temp_weak, temp_neutral = [], [], []
+        # Rank peaks based on proximity
+        for i, current_peak in enumerate(peaks):
+            current_price = self.price_series.iloc[current_peak]
+            for previous_peak in peaks[:i]:
+                if abs(current_price - self.price_series.iloc[previous_peak]) <= peak_rank_width:
+                    peak_to_rank[current_peak] += 1
         
-        # Identify local min/max
-        for i in range(len(self.prices) - window_size):
-            window = self.prices[i:i + window_size]
-            min_price = min(window)
-            max_price = max(window)
-            
-            temp_strong.append(max_price)
-            temp_weak.append(min_price)
+        resistances = [self.price_series.iloc[peak] for peak, rank in peak_to_rank.items() if rank >= min_pivot_rank]
+        resistances.sort()
         
-        # Compute final values
-        resistance_zones['strong'] = self._find_frequent_levels(temp_strong)
-        resistance_zones['weak'] = self._find_frequent_levels(temp_weak)
-        resistance_zones['neutral'] = np.mean([resistance_zones['strong'], resistance_zones['weak']]) if resistance_zones['strong'] and resistance_zones['weak'] else None
+        # Identify support troughs
+        troughs, _ = sp.find_peaks(-self.price_series, distance=peak_distance)  # Inverted to detect troughs
+        trough_to_rank = {trough: 0 for trough in troughs}
+        
+        for i, current_trough in enumerate(troughs):
+            current_price = self.price_series.iloc[current_trough]
+            for previous_trough in troughs[:i]:
+                if abs(current_price - self.price_series.iloc[previous_trough]) <= peak_rank_width:
+                    trough_to_rank[current_trough] += 1
+        
+        supports = [self.price_series.iloc[trough] for trough, rank in trough_to_rank.items() if rank >= min_pivot_rank]
+        supports.sort()
 
-        return resistance_zones
+        # Cluster the support and resistance levels
+        supports = self.cluster_levels(supports, max_touches=max_touches)
+        resistances = self.cluster_levels(resistances, max_touches=max_touches)
+        
+        return {'support_zones': supports, 'resistance_zones': resistances}
     
-    def calculate_volatility(self):
+    def cluster_levels(self, levels, relative_threshold=0.022, min_touch_count=2, max_touches=15):
         """
-        Calculate the volatility score based on the standard deviation of price returns.
+        Clusters similar price levels to reduce noise while preserving key support and resistance zones.
+        Returns the clustered zones along with their strength (normalized touches and importance).
         """
-        returns = [(self.prices[i] - self.prices[i-1]) / self.prices[i-1] for i in range(1, len(self.prices))]
-        volatility = np.std(returns)
-        normalized_volatility = volatility * 100
-        return normalized_volatility
-    
-    def analyze(self):
-        """
-        Analyze price data and return the average price, support zones, resistance zones, and volatility score.
-        """
-        avg_price = self.calculate_average_price()
-        
-        support_zones = self.find_support_zones()
-        resistance_zones = self.find_resistance_zones()
-        
-        volatility_score = self.calculate_volatility()
-        
-        return {
-            "average_price": avg_price,
-            "support_zones": support_zones,
-            "resistance_zones": resistance_zones,
-            "volatility_score": volatility_score
-        }
+        if not levels:
+            return []
 
+        levels = sorted(levels)  # Ensure levels are in ascending order
+        price_range = max(levels) - min(levels)  # Calculate the range of prices
+        threshold = relative_threshold * price_range  # Dynamic threshold based on price range
+
+        clustered = []
+        current_cluster = []
+        zone_touch_counts = {}  # Dictionary to store touch counts for each zone
+
+        for lvl in levels:
+            if not current_cluster or abs(current_cluster[-1] - lvl) <= threshold:
+                current_cluster.append(lvl)
+            else:
+                if len(current_cluster) >= min_touch_count:
+                    # Calculate the average of the cluster to represent the zone
+                    avg_cluster_price = np.mean(current_cluster)
+                    clustered.append(avg_cluster_price)
+                    # Store how many times this zone was touched
+                    zone_touch_counts[avg_cluster_price] = len(current_cluster)
+                current_cluster = [lvl]
+
+        if current_cluster and len(current_cluster) >= min_touch_count:
+            avg_cluster_price = np.mean(current_cluster)
+            clustered.append(avg_cluster_price)
+            zone_touch_counts[avg_cluster_price] = len(current_cluster)
+
+        # Find the max touch count to normalize strength values
+        max_touches_count = max(zone_touch_counts.values()) if zone_touch_counts else 1
+        
+        # Simplified return: Zone level and normalized strength (between 0 and 1)
+        zones_with_strength = [{'zone_level': zone, 'strength': zone_touch_counts[zone] / max_touches_count} for zone in clustered]
+
+        return zones_with_strength

@@ -53,9 +53,9 @@ class PricePlotter:
 
             # Draw vertical lines for 'BOUGHT' and 'SOLD' actions without labels
             if action == "BOUGHT" or action == "ADDED":
-                self.ax.axvline(x=time, color=BOUGHT_COLOR, linewidth=BOUGHT_LINE_WIDTH)
+                self.ax.axvline(x=time, color=BOUGHT_COLOR, linewidth=BOUGHT_LINE_WIDTH, alpha=0.3)
             elif action == "SOLD":
-                self.ax.axvline(x=time, color=SOLD_COLOR, linewidth=SOLD_LINE_WIDTH)
+                self.ax.axvline(x=time, color=SOLD_COLOR, linewidth=SOLD_LINE_WIDTH , alpha=0.3)
 
             # Draw trend indicators if needed
             if short_term_trends == "bullish":
@@ -129,40 +129,30 @@ class PricePlotter:
             if short_term_trends == "bullish":
                 self.ax.scatter(time, price - SHORT_TERM_TREND_OFFSET * price, color="green", s=50, alpha=SHORT_TERM_ALPHA)
             elif short_term_trends == "bearish":
-                self.ax.scatter(time, price - SHORT_TERM_TREND_OFFSET * price, color="red", s=50, alpha=SHORT_TERM_ALPHA) 
+                self.ax.scatter(time, price - SHORT_TERM_TREND_OFFSET * price, color="red", s=50, alpha=SHORT_TERM_ALPHA)
 
             if mid_term_trends == "bullish":
                 self.ax.scatter(time, price - MID_TERM_TREND_OFFSET * price, color="green", s=50, alpha=MID_TERM_ALPHA)
             elif mid_term_trends == "bearish":
                 self.ax.scatter(time, price - MID_TERM_TREND_OFFSET * price, color="red", s=50, alpha=MID_TERM_ALPHA)
 
-        
-        # Plot support zones if they exist
-        if supportzones['strong']:
-            self.ax.axhline(y=supportzones['strong'], color='green', linestyle='-', alpha=0.7)
-            self.ax.text(times[-1], supportzones['strong'], " Strong", color='green', fontsize=10, verticalalignment='center')
+        # Plot all support zones (green, dashed, alpha adjusted by touch count)
+        for zone_data in supportzones:
+            level = zone_data['zone_level']
+            strength = zone_data['strength']
 
-        if supportzones['weak']:
-            self.ax.axhline(y=supportzones['weak'], color='orange', linestyle='--', alpha=0.7)
-            self.ax.text(times[-1], supportzones['weak'], " Weak", color='orange', fontsize=10, verticalalignment='center')
+            # Adjust the alpha based on the touch count
+            alpha = min(10 * strength, 1.0)  # Ensure alpha doesn't exceed 1
+            self.ax.axhline(y=level, color='green', linestyle='--', alpha=alpha)
 
-        if supportzones['neutral']:
-            self.ax.axhline(y=supportzones['neutral'], color='purple', linestyle=':', alpha=0.7)
-            self.ax.text(times[-1], supportzones['neutral'], " Neutral", color='purple', fontsize=10, verticalalignment='center')
+        # Plot all resistance zones (red, dashed, alpha adjusted by touch count)
+        for zone_data in resistancezones:
+            level = zone_data['zone_level']
+            strength = zone_data['strength']
 
-        # Plot resistance zones if they exist
-        if resistancezones['strong']:
-            self.ax.axhline(y=resistancezones['strong'], color='red', linestyle='-', alpha=0.7)
-            self.ax.text(times[-1], resistancezones['strong'], " Strong", color='red', fontsize=10, verticalalignment='center')
-
-        if resistancezones['weak']:
-            self.ax.axhline(y=resistancezones['weak'], color='orange', linestyle='--', alpha=0.7)
-            self.ax.text(times[-1], resistancezones['weak'], " Weak", color='orange', fontsize=10, verticalalignment='center')
-
-        if resistancezones['neutral']:
-            self.ax.axhline(y=resistancezones['neutral'], color='purple', linestyle=':', alpha=0.7)
-            self.ax.text(times[-1], resistancezones['neutral'], " Neutral", color='purple', fontsize=10, verticalalignment='center')
-
+            # Adjust the alpha based on the touch count
+            alpha = min(10 * strength, 1.0)  # Ensure alpha doesn't exceed 1
+            self.ax.axhline(y=level, color='red', linestyle='--', alpha=alpha)
 
         # Format the plot
         self.ax.set_xlabel("Time (UTC)")

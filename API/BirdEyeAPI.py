@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 BIRDEYE_API_URL = "https://public-api.birdeye.so/defi/history_price"
+BIRDEYE_API_URL_OHLCV = "https://public-api.birdeye.so/defi/ohlcv"
 API_KEY = os.getenv("BIRDEYE_API_KEY")  # Replace with your Birdeye API key
 
 def get_historical_price(token_address, interval, time_from, time_to, chain="solana"):
@@ -54,7 +55,7 @@ def get_historical_ohlcv_price_data(token_address, interval, time_from, time_to,
     }
     
     try:
-        response = requests.get(BIRDEYE_API_URL, headers=headers, params=params)
+        response = requests.get(BIRDEYE_API_URL_OHLCV, headers=headers, params=params)
         response.raise_for_status()  # Raise an error for HTTP codes 4xx/5xx
         return response.json()
     except requests.exceptions.RequestException as e:

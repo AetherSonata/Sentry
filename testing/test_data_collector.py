@@ -15,6 +15,8 @@ class TestDataCollector:
         self.ohlcv_price_data = self.collect_historic_ohlcv_price_data()
         self.metrics = None
 
+        self.mock_real_time_data_feed = None
+
     
     def get_interval_in_minutes(self, interval):
         """Converts time interval (like 1m, 5m, 1H, 1D) to minutes."""
@@ -93,14 +95,124 @@ class TestDataCollector:
         metrics = metric_analyzer.calculate_metrics_for_intervals([5,15,50,200])
 
 
+    def collect_last_20_prices(self, end_index):
+        """
+        Collects up to the last 20 prices from historical data up to the given index.
+        Stores (close price) and (average of high/low) for volatility analysis.
+        """
+        start_index = max(0, end_index - 19)  # Ensure we don't go below index 0
+        last_20_prices = [
+            {
+                "price_close": self.ohlcv_price_data[i]["c"],
+                "avg_price": (self.ohlcv_price_data[i]["h"] + self.ohlcv_price_data[i]["l"]) / 2
+            }
+            for i in range(start_index, end_index + 1)
+        ]
+        return last_20_prices
+    
+    import numpy as np
 
-current_metric = {
+    def calculate_avg_volume(self, end_index, lookback):
+        """
+        Computes the average volume over a given lookback period.
+        Returns None if not enough candles are available.
+        """
+        if end_index < lookback:  # Not enough data
+            return None
+
+        volume_data = [x["v"] for x in self.ohlcv_price_data[end_index - lookback:end_index]]
+        
+        return np.mean(volume_data) if volume_data else None
+    
+    def calculate_volume_change_percentage(self, end_index, lookback):
+        """
+        Calculates the volume change percentage compared to the lookback period.
+        Returns None if there is not enough data for the lookback.
+        """
+        # Ensure there is enough data for the lookback
+        if end_index < lookback:
+            return None
+        
+        # Get the volume at current index and the volume at the lookback period
+        current_volume = self.ohlcv_price_data[end_index]["v"]
+        past_volume = self.ohlcv_price_data[end_index - lookback]["v"]
+        
+        # Calculate the percentage change
+        volume_change_percentage = ((current_volume - past_volume) / past_volume) * 100
+        
+        return volume_change_percentage
+    
+    def calculate_vwap(self, period_candles, end_index):
+        """
+        Calculates the Volume Weighted Average Price (VWAP) from (end_index - period_candles + 1) to end_index.
+        If not enough data is available, returns None.
+        """
+        start_index = max(0, end_index - period_candles + 1)  # Ensure we don't go below index 0
+
+        if end_index < start_index:
+            return None
+
+        total_volume = 0
+        total_price_volume = 0
+
+        for i in range(start_index, end_index + 1):
+            # Calculate the typical price for the candle
+            typical_price = (self.ohlcv_price_data[i]["h"] + self.ohlcv_price_data[i]["l"] + self.ohlcv_price_data[i]["c"]) / 3
+            volume = self.ohlcv_price_data[i]["v"]
+
+            # Volume-weighted price
+            total_price_volume += typical_price * volume
+            total_volume += volume
+
+        # VWAP calculation
+        if total_volume == 0:
+            return None  # Avoid division by zero if there's no volume
+
+        vwap = total_price_volume / total_volume
+        return vwap
+
+
+
+    def collect_all_metrics_and_store(self):
+        for i in range(0, len(self.ohlcv_price_data)):
+            self.mock_real_time_data_feed = self.ohlcv_price_data[i]
+            current_metric = METRIC_POINT
+            current_metric["price_close"] = self.mock_real_time_data_feed["c"]
+            current_metric["avg_price"] = (self.mock_real_time_data_feed["h"] + self.mock_real_time_data_feed["l"]) / 2
+            current_metric["price_high"] = self.mock_real_time_data_feed["h"]
+            current_metric["price_low"] = self.mock_real_time_data_feed["l"]
+            current_metric["price_open"] = self.mock_real_time_data_feed["o"]
+            current_metric["last_20_prices"] = self.collect_last_20_prices(i)
+        
+            current_metric["volume"]["current_volume"] = self.mock_real_time_data_feed["v"]
+            current_metric["volume"]["avg_volume_last_10_candles"] = self.calculate_avg_volume(i, 10)
+            current_metric["volume"]["avg_volume_last_50_candles"] = self.calculate_avg_volume(i, 50)
+            current_metric["volume"]["avg_volume_last_100_candles"] = self.calculate_avg_volume(i, 100)
+            current_metric["volume"]["volume_change_percentage"]["5"] = self.calculate_volume_change_percentage(i, 5)
+            current_metric["volume"]["volume_change_percentage"]["15"] = self.calculate_volume_change_percentage(i, 15)
+            current_metric["volume"]["volume_change_percentage"]["30"] = self.calculate_volume_change_percentage(i, 30)
+            current_metric["volume"]["volume_change_percentage"]["60"] = self.calculate_volume_change_percentage(i, 60)
+            current_metric["volume"]["volume_change_percentage"]["120"] = self.calculate_volume_change_percentage(i, 120)
+            current_metric["volume"]["volume_change_percentage"]["240"] = self.calculate_volume_change_percentage(i, 240)
+
+            current_metric["VWAP_last_10_candles"] = self.calculate_vwap(10, i)
+            current_metric["VWAP_last_50_candles"] = self.calculate_vwap(50, i)
+
+            
+
+            pass
+
+
+
+
+
+METRIC_POINT = {
     # Price-related features
-    "price_open": None,
     "price_close": None,
+    "price_open": None,
     "price_high": None,
     "price_low": None,
-    "price_avg": None,
+    "avg_price": None,
     "last_20_prices": [],  # A smaller historical window for quick reactions
 
     # Volume-related features
@@ -108,13 +220,15 @@ current_metric = {
         "current_volume": None,
         "avg_volume_last_10_candles": None,
         "avg_volume_last_50_candles": None,
+        "avg_volume_last_100_candles": None,
         "volume_change_percentage": {
             "5": None, "15": None, "30": None, "60": None, "120": None, "240": None
         }
     },
 
     # Price-Volume weighted average price
-    "VWAP": None,
+    "VWAP_last_10_candles": None,
+    "VWAP_last_50_candles": None,
 
     # Support and resistance levels (with strength indicating how often they've been tested)
     "support_resistance": {

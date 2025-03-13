@@ -5,25 +5,27 @@ from actions.tradingEngine import TradingEngine
 from actions.testing_portfolio import TestingPortfolio as Portfolio
 
 #global variables for testing
-TOKEN_ADDRESS = "9m3nh7YDoF1WSYpNxCjKVU8D1MrXsWRic4HqRaTdcTYB"
+TOKEN_ADDRESS = "DjgujfEv2u2qz7PNuS6Ct7bctnxPFihfWE2zBpKZpump"
 INTERVAL = "5m"    # birdeye fetching max 1000 data points of historic data
-SPAN_IN_DAYS = 20
+SPAN_IN_DAYS = 200
 TESTING_PORT_BALANCE = 100
+STARTING_INDEX = 4000
+OHLCV = False
 
 
 if __name__ == "__main__":
 
     #if data cant be read from file, fetch it from API
     try:
-        historical_data = load_historical_price(filename= f"histocal_price_data_{TOKEN_ADDRESS}_{INTERVAL}_{SPAN_IN_DAYS}.json")
+        historical_data = load_historical_price(filename= f"histocal_price_data_{TOKEN_ADDRESS}_{INTERVAL}_{SPAN_IN_DAYS}_{OHLCV}.json")
     except Exception as e:
         print(f"Error loading data: {e}")
     
     if not historical_data: 
-        historical_data = fetch_complete_test_data(TOKEN_ADDRESS, INTERVAL, SPAN_IN_DAYS)
+        historical_data = fetch_complete_test_data(TOKEN_ADDRESS, INTERVAL, SPAN_IN_DAYS, ohlcv=OHLCV)
         print("Data fetched from API.")
         try:
-            save_historical_price(historical_data, filename= f"histocal_price_data_{TOKEN_ADDRESS}_{INTERVAL}_{SPAN_IN_DAYS}.json")
+            save_historical_price(historical_data, filename= f"histocal_price_data_{TOKEN_ADDRESS}_{INTERVAL}_{SPAN_IN_DAYS}_{OHLCV}.json")
         except Exception as e:
             print(f"Error saving data: {e}")
     else:
@@ -37,7 +39,7 @@ if __name__ == "__main__":
 
 
         #TODO for testing purposes:
-        starting_index, max_interval = 0, "1w"
+        starting_index, max_interval = STARTING_INDEX, "1w"
 
         #initialize portfolio with starting balance
         portfolio = Portfolio()
@@ -69,7 +71,7 @@ if __name__ == "__main__":
 
 
             # print(mid_term_trend)
-            print(tradingEngine.metrics[-1])
+            # print(tradingEngine.metrics[-1])
            
             
             #add the latest price point and metrics to the plotter
