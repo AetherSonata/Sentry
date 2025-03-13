@@ -94,96 +94,86 @@ class TestDataCollector:
 
 
 
-metrics = {
+current_metric = {
+    # Price-related features
+    "price_open": None,
+    "price_close": None,
+    "price_high": None,
+    "price_low": None,
+    "price_avg": None,
+    "last_20_prices": [],  # A smaller historical window for quick reactions
 
-            "price_open": None,
-            "price_close": None,
-            "price_high": None,
-            "price_low": None,
-            "current_volume": None,
-            "50_previous_prices" : [],
-            "price_change_percentage" : {
-                "5" : None,
-                "15" : None,
-                "30" : None,
-                "60" : None,
-                "120" : None,
-                "240" : None,
-            },
-            "volatility" : {
-                "20_candles": None,
-                "50_candles": None,
-            },
-            "ema": {
-                "current_ema" : {
-                    "ema-5": None,
-                    "ema-15": None,
-                    "ema-50": None,
-                    "ema-200": None,
-                },
-                "ema_slope": {
-                    "ema-5": {
-                        "5_candles": None,
-                        "10_candles": None},
-                    "ema-15": {
-                        "5_candles": None,
-                        "10_candles": None},
-                    "ema-50": {
-                        "5_candles": None,
-                        "10_candles": None},
-                    "ema-200": {
-                        "5_candles": None,
-                        "10_candles": None},
-                "ema_crossovers": {
-                    "ema-5-15": {
-                        "2_candles": None,
-                        "5_candles": None,
-                        "10_candles": None,
-                        }  , 
-                    "ema-15-50": {
-                        "2_candles": None,
-                        "5_candles": None,
-                        "10_candles": None
-                        },
-                    "ema-50-200": {
-                        "2_candles": None,
-                        "5_candles": None,
-                        "10_candles": None,
-                    }
-                },
-            "rsi": {
-                "current_rsi": {
-                    "rsi-5": {
-                        "5_min": None,
-                        "15_min": None,
-                        "30_min": None,
-                        "60_min": None,
-                        "120_min": None,
-                        "240_min": None,
-                    },
-                    "rsi-15": {
-                        "5_min": None,
-                        "15_min": None,
-                        "30_min": None,
-                        "60_min": None,
-                        "120_min": None,
-                        "240_min": None,
-                    },
-                    "rsi-50": {
-                        "5_min": None,
-                        "15_min": None,
-                        "30_min": None,
-                        "60_min": None,
-                        "120_min": None,
-                        "240_min": None,
-                    }
-                    },
-                    
-            },
+    # Volume-related features
+    "volume": {
+        "current_volume": None,
+        "avg_volume_last_10_candles": None,
+        "avg_volume_last_50_candles": None,
+        "volume_change_percentage": {
+            "5": None, "15": None, "30": None, "60": None, "120": None, "240": None
+        }
+    },
 
+    # Price-Volume weighted average price
+    "VWAP": None,
 
-   }
-        
+    # Support and resistance levels (with strength indicating how often they've been tested)
+    "support_resistance": {
+        "support_zones": [{"level": None, "strength": None}],
+        "resistance_zones": [{"level": None, "strength": None}]
+    },
+
+    # Relative momentum (price change percentages) for various spans
+    "price_change_percentage": {
+        "5": None, "15": None, "30": None, "60": None, "120": None, "240": None
+    },
+
+    # Volatility (using standard deviation of the last 20 and 50 candles)
+    "volatility": {
+        "20_candles": None, "50_candles": None
+    },
+
+    # EMA-related features
+    "ema": {
+        "current_ema": {
+            "ema-5": None,
+            "ema-15": None,
+            "ema-50": None,
+            "ema-200": None
+        },
+        "ema_slope": {
+            # Using a 5-candle lookback for the short-term EMAs; for longer-term, a 10-candle slope may be more stable.
+            "ema-5": {"5_candles": None},
+            "ema-15": {"5_candles": None},
+            "ema-50": {"5_candles": None, "10_candles": None},
+            "ema-200": {"10_candles": None}
+        },
+        "ema_crossovers": {
+            # Only using 5 and 10 candle lookbacks for crossovers to capture quick shifts
+            "ema-5-15": {"5_candles": None, "10_candles": None},
+            "ema-15-50": {"5_candles": None, "10_candles": None},
+            "ema-50-200": {"5_candles": None, "10_candles": None}
+        }
+    },
+
+    # RSI-related features (focusing on more responsive timeframes)
+    "rsi": {
+        "current_rsi": {
+            # Use 5-minute RSI for very responsive signals and 15-minute RSI for a slightly broader view.
+            "rsi-5": {"5_min": None},
+            "rsi-15": {"15_min": None}
+        },
+        "rsi_slope": {
+            "rsi-5": {"5_candles": None},
+            "rsi-15": {"5_candles": None}
+        },
+        "rsi_divergence": {
+            # For divergence, include a lookback (which can be dynamic) and signal strength.
+            "rsi-5": {"divergence_direction": None, "divergence_strength": None, "lookback": None},
+            "rsi-15": {"divergence_direction": None, "divergence_strength": None, "lookback": None}
+        }
+    }
+}
+
 
     
 
