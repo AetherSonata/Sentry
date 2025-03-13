@@ -5,8 +5,8 @@ from actions.tradingEngine import TradingEngine
 from actions.testing_portfolio import TestingPortfolio as Portfolio
 
 #global variables for testing
-TOKEN_ADDRESS = "4taJ4B67sp5Tbe5CaizkVVubS39xqaMRA4TCLYZNpump"
-INTERVAL = "1m"    # birdeye fetching max 1000 data points of historic data
+TOKEN_ADDRESS = "9m3nh7YDoF1WSYpNxCjKVU8D1MrXsWRic4HqRaTdcTYB"
+INTERVAL = "5m"    # birdeye fetching max 1000 data points of historic data
 SPAN_IN_DAYS = 20
 TESTING_PORT_BALANCE = 100
 
@@ -37,7 +37,7 @@ if __name__ == "__main__":
 
 
         #TODO for testing purposes:
-        starting_index, max_interval = 160, "1w"
+        starting_index, max_interval = 0, "1w"
 
         #initialize portfolio with starting balance
         portfolio = Portfolio()
@@ -67,10 +67,9 @@ if __name__ == "__main__":
                 print(support_zones, resistance_zones)
                 tradingEngine.chartmetrics_printed = False
 
-             
 
-            # print(short_term_trend, mid_term_trend)
-            # print(tradingEngine.metrics[-1])
+            # print(mid_term_trend)
+            print(tradingEngine.metrics[-1])
            
             
             #add the latest price point and metrics to the plotter

@@ -167,7 +167,7 @@ class PricePlotter:
         # Format the plot
         self.ax.set_xlabel("Time (UTC)")
         self.ax.set_ylabel("Price")
-        self.ax.set_title(f"Price Action Over Time ({self.interval} Interval)")
+        self.ax.set_title(f" ({self.interval} Interval)")
         self.ax.tick_params(axis='x', rotation=45)
         self.ax.xaxis.set_major_locator(mdates.AutoDateLocator())
         self.ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M\n%d-%b"))

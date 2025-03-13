@@ -1,4 +1,4 @@
-from API.BirdEyeAPI import get_historical_price
+from API.BirdEyeAPI import get_historical_price, get_historical_ohlcv_price_data
 from testing.visualization import PricePlotter
 from datetime import datetime
 import time
@@ -77,7 +77,7 @@ def fetch_data_by_date(address, interval, start_timestamp, end_timestamp, chunk_
     print(f"Loop executed {iterations} times.")
     return {"data": {"items": all_data}}
 
-def fetch_complete_test_data(address, interval, span_in_days, chunk_size=1000, chain="solana"):
+def fetch_complete_test_data(address, interval, span_in_days, chunk_size=1000, chain="solana", ohlcv=False):
     """
     Fetches historical price data in chunks until the span (in days) is covered.
     
@@ -118,7 +118,10 @@ def fetch_complete_test_data(address, interval, span_in_days, chunk_size=1000, c
 
         time.sleep(5)  # Prevent rate limiting
         
-        data_chunk = get_historical_price(address, interval, time_from, time_to, chain=chain)
+        if ohlcv:
+            data_chunk = get_historical_ohlcv_price_data(address, interval, time_from, time_to, chain=chain)
+        else:
+            data_chunk = get_historical_price(address, interval, time_from, time_to, chain=chain)
 
         if isinstance(data_chunk, dict) and "success" in data_chunk and not data_chunk["success"]:
             if "Too many requests" in data_chunk.get("message", ""):

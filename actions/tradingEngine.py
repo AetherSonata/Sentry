@@ -461,14 +461,14 @@ class TradingEngine:
     # WORKS ONLY IF SMALLEST INTERVAL IS 15 minutes !!! 
     def confirm_short_term_dip(self):
         short_term_data = self.confirm_group_rsi_threshold(
-            interval_weights={"1m": 1, "5m": 1},
+            interval_weights={"1m": 1, "5m": 2, "15": 1},
             trend_confirmation_lookback=10,
             rsi_threshold=30,
             direction="below"
         )
         
         mid_term_data = self.confirm_group_rsi_threshold(
-            interval_weights={"15m": 1, "30m": 1, "1h": 1},
+            interval_weights={"15m": 3, "30m": 2, "1h": 1},
             trend_confirmation_lookback=5,
             rsi_threshold=50,
             direction="below"

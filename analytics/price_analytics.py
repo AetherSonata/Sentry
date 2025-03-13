@@ -40,7 +40,7 @@ class MetricAnalyzer:
         
         
 
-    def calculate_metrics_for_intervals(self):
+    def calculate_metrics_for_intervals(self, ema_periods=[5, 15, 50, 200]):
         """Calculates RSI and different EMAs for all the calculated intervals."""
         if not self.intervals_available_for_calculation:
             return None
@@ -52,7 +52,7 @@ class MetricAnalyzer:
             step = interval_minutes // min_interval_minutes  # How many smaller intervals to skip
             
             # Fetch the required data points for each metric
-            ema_periods = [15, 50, 200]
+            ema_periods = ema_periods
 
             for period in ema_periods:
                 required_points = period  # EMA needs at least `period` number of points
