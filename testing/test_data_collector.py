@@ -1,5 +1,6 @@
 from testing.utils import fetch_complete_test_data, load_historical_price, save_historical_price
 from analytics.price_analytics import MetricAnalyzer
+from analytics.chart_analyzer import ChartAnalyzer
 import numpy as np
 
 TOKEN_ADDRESS = "9m3nh7YDoF1WSYpNxCjKVU8D1MrXsWRic4HqRaTdcTYB"
@@ -56,25 +57,22 @@ class TestDataCollector:
                 print(f"Error saving data: {e}")
 
         return ohlcv_price_data
-    
-    def calculate_and_collect_momentum(self, span_list=[5, 15, 30, 60, 120, 240]):
-        """Calculates relative momentum for a list of spans (in minutes) and stores the results in self.metrics."""
         
-        for span_in_minutes in span_list:
-            num_candles = span_in_minutes // self.minutes  # Convert minutes to number of candles
+    def calculate_price_momentum(self, i, span_in_minutes):
+        """Calculates relative momentum (price change percentage) for a given span in minutes."""
 
-            if num_candles >= len(self.ohlcv_price_data):
-                self.metrics[f"{span_in_minutes}m_momentum"] = None  # Not enough data for this span
-                continue  # Skip to the next span if not enough data
+        num_candles = span_in_minutes // self.minutes  # Convert minutes to number of candles
 
-            current_price = self.ohlcv_price_data[-1]["close"]
-            past_price = self.ohlcv_price_data[-num_candles]["close"]  # Get the past price for the interval
+        if num_candles >= i:  # Not enough historical data available
+            return None
 
-            # Calculate momentum
-            momentum = ((current_price - past_price) / past_price) * 100
+        current_price = self.ohlcv_price_data[i]["close"]
+        past_price = self.ohlcv_price_data[i - num_candles]["close"]  # Get the past price for the interval
 
-            # Store momentum in the metrics dictionary
-            self.metrics[f"{span_in_minutes}m_momentum"] = momentum
+        # Calculate momentum (percentage change)
+        momentum = ((current_price - past_price) / past_price) * 100
+
+        return momentum
 
 
     def calculate_volatility(self, window_sizes=[20, 50]):
@@ -84,10 +82,10 @@ class TestDataCollector:
         # Loop through the window sizes and calculate volatility
         for window_size in window_sizes:
             if len(prices) < window_size:
-                self.metrics[f"volatility_{window_size}"] = None  # Not enough data
+                return None  # Not enough data
             else:
                 # Calculate the standard deviation for the last `window_size` candles
-                self.metrics[f"volatility_{window_size}"] = np.std(prices[-window_size:])
+                return np.std(prices[-window_size:])
 
     def calculate_ema_rsi_metrics(self):
         metric_analyzer = MetricAnalyzer(MIN_INTERVAL)
@@ -110,7 +108,6 @@ class TestDataCollector:
         ]
         return last_20_prices
     
-    import numpy as np
 
     def calculate_avg_volume(self, end_index, lookback):
         """
@@ -170,6 +167,32 @@ class TestDataCollector:
 
         vwap = total_price_volume / total_volume
         return vwap
+    
+    def calculate_ema_slopes(self, ema_type, timeframe, n):
+        # Ensure the requested EMA type and timeframe are valid
+        valid_ema_types = ["5-point-ema", "15-point-ema", "50-point-ema"]
+        valid_timeframes = ["5", "15", "30"]
+        
+        if ema_type not in valid_ema_types or timeframe not in valid_timeframes:
+            raise ValueError(f"Invalid ema_type or timeframe: {ema_type}, {timeframe}")
+
+        # Get the last `n` metrics from the list
+        last_n_metrics = self.metrics[-n:]
+
+        # List to store EMA values for the given type and timeframe
+        ema_values = [metric[ema_type][timeframe] for metric in last_n_metrics]
+
+        # Ensure we have enough data to calculate slope
+        if len(ema_values) < 2:
+            return None  # Can't calculate slope with less than 2 points
+
+        # Calculate the slope as the difference between the most recent and the earliest EMA value
+        slope = (ema_values[-1] - ema_values[0]) / (n - 1)  # Change in value per step
+
+        # Return the calculated slope
+        return {f"{ema_type}_{timeframe}_slope": slope}
+
+
 
 
 
@@ -198,9 +221,52 @@ class TestDataCollector:
             current_metric["VWAP_last_10_candles"] = self.calculate_vwap(10, i)
             current_metric["VWAP_last_50_candles"] = self.calculate_vwap(50, i)
 
-            
+            chart_analyzer = ChartAnalyzer(self.ohlcv_price_data[:i+1], self.interval)
+            current_metric["support_resistances"] = chart_analyzer.find_support_resistance_zones()["support_zones"]
 
-            pass
+            current_metric["price_change_percentage"]["5"] = self.calculate_price_momentum(i, 5)
+            current_metric["price_change_percentage"]["15"] = self.calculate_price_momentum(i, 15)
+            current_metric["price_change_percentage"]["30"] = self.calculate_price_momentum(i, 30)
+            current_metric["price_change_percentage"]["60"] = self.calculate_price_momentum(i, 60)
+            current_metric["price_change_percentage"]["120"] = self.calculate_price_momentum(i, 120)
+            current_metric["price_change_percentage"]["240"] = self.calculate_price_momentum(i, 240)
+
+            current_metric["volatility"]["20_candles"] = self.calculate_volatility(i, 20)
+            current_metric["volatility"]["50_candles"] = self.calculate_volatility(i, 50)
+
+            metric_analyzer = MetricAnalyzer(self.ohlcv_price_data[:i+1], self.interval)
+            price_metrics = metric_analyzer.calculate_metrics_for_intervals()
+
+            current_metric["ema"]["5-point-ema"]["5"] = price_metrics["5-Point-EMA-5m"]
+            current_metric["ema"]["15-point-ema"]["5"] = price_metrics["15-Point-EMA-5m"]
+            current_metric["ema"]["50-point-ema"]["5"] = price_metrics["50-Point-EMA-5m"]
+
+            current_metric["ema"]["5-point-ema"]["15"] = price_metrics["5-Point-EMA-15m"]
+            current_metric["ema"]["15-point-ema"]["15"] = price_metrics["15-Point-EMA-15m"]
+            current_metric["ema"]["50-point-ema"]["15"] = price_metrics["50-Point-EMA-15m"]
+
+            current_metric["ema"]["5-point-ema"]["30"] = price_metrics["5-Point-EMA-30m"]  
+            current_metric["ema"]["15-point-ema"]["30"] = price_metrics["15-Point-EMA-30m"]
+            current_metric["ema"]["50-point-ema"]["30"] = price_metrics["50-Point-EMA-30m"]
+
+            current_metric["ema"]["ema_slope_5min"]["5"]["5_candles"] = self.calculate_ema_slopes("5-point-ema", "5", 5)
+            current_metric["ema"]["ema_slope_5min"]["15"]["5_candles"] = self.calculate_ema_slopes("15-point-ema", "5", 5)
+            current_metric["ema"]["ema_slope_5min"]["50"]["5_candles"] = self.calculate_ema_slopes("50-point-ema", "5", 5)
+
+            current_metric["ema"]["ema_slope_15min"]["5"]["5_candles"] = self.calculate_ema_slopes("5-point-ema", "15", 5)
+            current_metric["ema"]["ema_slope_15min"]["15"]["5_candles"] = self.calculate_ema_slopes("15-point-ema", "15", 5)
+            current_metric["ema"]["ema_slope_15min"]["50"]["5_candles"] = self.calculate_ema_slopes("50-point-ema", "15", 5)
+            current_metric["ema"]["ema_slope-15min"]["5"]["10_candles"] = self.calculate_ema_slopes("5-point-ema", "15", 10)
+
+            current_metric["ema"]["ema_slope_30min"]["5"]["5_candles"] = self.calculate_ema_slopes("5-point-ema", "30", 5)
+            current_metric["ema"]["ema_slope_30min"]["15"]["5_candles"] = self.calculate_ema_slopes("15-point-ema", "30", 5)
+            current_metric["ema"]["ema_slope_30min"]["50"]["5_candles"] = self.calculate_ema_slopes("50-point-ema", "30", 5)
+
+
+
+            self.metrics.append(current_metric)
+            print(f"Metrics collected for index {i}")
+
 
 
 
@@ -231,10 +297,7 @@ METRIC_POINT = {
     "VWAP_last_50_candles": None,
 
     # Support and resistance levels (with strength indicating how often they've been tested)
-    "support_resistance": {
-        "support_zones": [{"level": None, "strength": None}],
-        "resistance_zones": [{"level": None, "strength": None}]
-    },
+    "support_resistance": None,
 
     # Relative momentum (price change percentages) for various spans
     "price_change_percentage": {
@@ -259,13 +322,12 @@ METRIC_POINT = {
             "ema-5": {"5_candles": None},
             "ema-15": {"5_candles": None},
             "ema-50": {"5_candles": None, "10_candles": None},
-            "ema-200": {"10_candles": None}
         },
         "ema_crossovers": {
             # Only using 5 and 10 candle lookbacks for crossovers to capture quick shifts
             "ema-5-15": {"5_candles": None, "10_candles": None},
             "ema-15-50": {"5_candles": None, "10_candles": None},
-            "ema-50-200": {"5_candles": None, "10_candles": None}
+           
         }
     },
 

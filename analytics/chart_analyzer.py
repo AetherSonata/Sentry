@@ -3,6 +3,7 @@ import pandas as pd
 from scipy import signal as sp
 from collections import Counter
 
+
 class ChartAnalyzer:
     def __init__(self, price_data, interval):
         self.price_data = price_data

@@ -71,7 +71,7 @@ if __name__ == "__main__":
 
 
             # print(mid_term_trend)
-            # print(tradingEngine.metrics[-1])
+            print(tradingEngine.metrics[-1])
            
             
             #add the latest price point and metrics to the plotter
