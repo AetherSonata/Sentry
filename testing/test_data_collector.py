@@ -1,5 +1,5 @@
 from testing.utils import fetch_complete_test_data, load_historical_price, save_historical_price
-from analytics.price_analytics import MetricAnalyzer
+from analytics.price_analytics import MetricAnalyzer_2
 from analytics.chart_analyzer import ChartAnalyzer
 import numpy as np
 
@@ -10,10 +10,11 @@ SPAN_IN_DAYS = 20
 
 class TestDataCollector:
     def __init__(self, token_address, interval):
+        self.metrics_analyzer = MetricAnalyzer_2(interval)
         self.token_address = token_address
         self.interval = interval
         self.interval_in_minutes = self.get_interval_in_minutes(interval)
-        self.ohlcv_price_data = self.collect_historic_ohlcv_price_data()
+        self.price_data = self.collect_historic_ohlcv_price_data()
         self.metrics = None
 
         self.mock_real_time_data_feed = None
@@ -86,11 +87,6 @@ class TestDataCollector:
             else:
                 # Calculate the standard deviation for the last `window_size` candles
                 return np.std(prices[-window_size:])
-
-    def calculate_ema_rsi_metrics(self):
-        metric_analyzer = MetricAnalyzer(MIN_INTERVAL)
-        metric_analyzer.update_price_data(self.ohlcv_price_data)
-        metrics = metric_analyzer.calculate_metrics_for_intervals([5,15,50,200])
 
 
     def collect_last_20_prices(self, end_index):
@@ -168,30 +164,38 @@ class TestDataCollector:
         vwap = total_price_volume / total_volume
         return vwap
     
-    def calculate_ema_slopes(self, ema_type, timeframe, n):
-        # Ensure the requested EMA type and timeframe are valid
-        valid_ema_types = ["5-point-ema", "15-point-ema", "50-point-ema"]
-        valid_timeframes = ["5", "15", "30"]
-        
-        if ema_type not in valid_ema_types or timeframe not in valid_timeframes:
-            raise ValueError(f"Invalid ema_type or timeframe: {ema_type}, {timeframe}")
-
+    def calculate_metric_slopes(self, metric_type, timeframe, n, averaged=True):
         # Get the last `n` metrics from the list
         last_n_metrics = self.metrics[-n:]
 
-        # List to store EMA values for the given type and timeframe
-        ema_values = [metric[ema_type][timeframe] for metric in last_n_metrics]
+        # Ensure we have enough data points
+        if len(last_n_metrics) < 2:
+            return None  
 
-        # Ensure we have enough data to calculate slope
-        if len(ema_values) < 2:
-            return None  # Can't calculate slope with less than 2 points
+        # Extract metric values while handling missing keys
+        metric_values = []
+        for metric in last_n_metrics:
+            try:
+                metric_values.append(metric[metric_type][timeframe])
+            except KeyError:
+                return None  # Return None if the requested metric type or timeframe is missing
 
-        # Calculate the slope as the difference between the most recent and the earliest EMA value
-        slope = (ema_values[-1] - ema_values[0]) / (n - 1)  # Change in value per step
+        # Ensure there are at least two valid metric values
+        if len(metric_values) < 2:
+            return None  
 
-        # Return the calculated slope
-        return {f"{ema_type}_{timeframe}_slope": slope}
-    
+        # If we want the average slope (using the change between each consecutive value)
+        if averaged:
+            slopes = [(metric_values[i] - metric_values[i - 1]) for i in range(1, len(metric_values))]
+            avg_slope = sum(slopes) / len(slopes)  # Rolling average slope
+            return {f"{metric_type}_{timeframe}_avg_slope": avg_slope}
+
+        # If we want the linear slope (using the first and last value over the period)
+        else:
+            linear_slope = (metric_values[-1] - metric_values[0]) / (n - 1)  # Linear slope
+            return {f"{metric_type}_{timeframe}_linear_slope": linear_slope}
+
+
     def calculate_ema_crossovers(self, short_ema, long_ema, timeframe, n):
         """
         Calculates EMA crossovers for the last `n` metrics.
@@ -209,21 +213,28 @@ class TestDataCollector:
                 - None (no crossover)
         """
 
-        # Get the last `n` metrics from the list
+        # Get the last `n` metrics
         last_n_metrics = self.metrics[-n:]
 
-        # Ensure there is enough data to process
+        # Ensure there is enough data
         if len(last_n_metrics) < 2:
-            return [None] * len(last_n_metrics)  # Return all None if not enough data
+            return [None] * len(last_n_metrics)
 
         crossovers = [None] * len(last_n_metrics)  # Initialize list with None
 
-        # Extract EMA values
-        short_ema_values = [metric[short_ema][timeframe] for metric in last_n_metrics]
-        long_ema_values = [metric[long_ema][timeframe] for metric in last_n_metrics]
+        # Extract EMA values, handling missing data
+        short_ema_values = []
+        long_ema_values = []
 
-        # Loop through and check crossovers
-        for i in range(1, len(last_n_metrics)):  # Start from the second value to compare with the previous one
+        for metric in last_n_metrics:
+            try:
+                short_ema_values.append(metric[short_ema][timeframe])
+                long_ema_values.append(metric[long_ema][timeframe])
+            except KeyError:
+                return [None] * len(last_n_metrics)  # Return None for all if a value is missing
+
+        # Compute crossovers
+        for i in range(1, len(last_n_metrics)):
             prev_short = short_ema_values[i - 1]
             prev_long = long_ema_values[i - 1]
             curr_short = short_ema_values[i]
@@ -231,19 +242,109 @@ class TestDataCollector:
 
             if prev_short <= prev_long and curr_short > curr_long:
                 crossovers[i] = 1  # Bullish crossover
-
             elif prev_short >= prev_long and curr_short < curr_long:
                 crossovers[i] = 0  # Bearish crossover
 
         return crossovers
+    
+    def calculate_rsi_divergence(self, rsi_type, n, interval, min_interval=5, rsi_overbought=70, rsi_oversold=30):
+        """
+        Detects RSI divergence (bullish or bearish) and evaluates the strength of the divergence, with an option for time interval-based analysis.
 
+        Args:
+            rsi_type (str): The key for the RSI type (e.g., "5-point-rsi").
+            n (int): Number of candles to look back.
+            interval (int): The time interval in minutes for which we want to calculate divergence (e.g., 15, 30).
+            min_interval (int): The smallest time step in minutes (default is 5).
+            rsi_overbought (float): RSI level considered overbought (default 70).
+            rsi_oversold (float): RSI level considered oversold (default 30).
+
+        Returns:
+            dict: Contains:
+                - "divergence_signal": 1 for bullish, 0 for bearish.
+                - "divergence_strength": A value between 0 and 1 representing the strength of the divergence.
+        """
+
+        # Calculate the number of steps to take based on the interval and min_interval
+        steps_to_take = interval // min_interval
+
+        # Ensure we have enough data
+        if len(self.mock_real_time_data_feed) < n or len(self.metrics[rsi_type]) < n:
+            return None
+
+        # Look at the last `n` data points for divergence detection
+        price_segment = self.mock_real_time_data_feed[-n:]
+        rsi_segment = self.metrics[rsi_type][-n:]
+
+        # Initialize the divergence signal and strength
+        divergence_signal = None
+        divergence_strength = 0
+
+        # Look for price lows/highs and RSI lows/highs
+        price_lows, rsi_lows = [], []
+        price_highs, rsi_highs = [], []
+
+        # Find price lows and highs, and the corresponding RSI values
+        for i in range(1, n - 1, steps_to_take):  # Adjusted to skip based on the interval
+            if price_segment[i] < price_segment[i - 1] and price_segment[i] < price_segment[i + 1]:
+                price_lows.append((i, price_segment[i]))
+                rsi_lows.append(rsi_segment[i])
+            elif price_segment[i] > price_segment[i - 1] and price_segment[i] > price_segment[i + 1]:
+                price_highs.append((i, price_segment[i]))
+                rsi_highs.append(rsi_segment[i])
+
+        # Check for bullish divergence (price makes lower lows, RSI makes higher lows)
+        if len(price_lows) >= 2 and len(rsi_lows) >= 2:
+            for i in range(1, len(price_lows)):
+                price_low1, price_low2 = price_lows[i - 1][1], price_lows[i][1]
+                rsi_low1, rsi_low2 = rsi_lows[i - 1], rsi_lows[i]
+
+                if price_low1 > price_low2 and rsi_low1 < rsi_low2:
+                    # Calculate divergence strength
+                    distance_price = abs(price_low1 - price_low2)
+                    distance_rsi = abs(rsi_low1 - rsi_low2)
+                    divergence_strength = max(divergence_strength, distance_rsi / distance_price)
+
+                    if rsi_low2 < rsi_oversold:
+                        divergence_signal = 1  # Bullish divergence
+                    else:
+                        divergence_signal = 1  # Bullish divergence (weak)
+
+        # Check for bearish divergence (price makes higher highs, RSI makes lower highs)
+        if len(price_highs) >= 2 and len(rsi_highs) >= 2:
+            for i in range(1, len(price_highs)):
+                price_high1, price_high2 = price_highs[i - 1][1], price_highs[i][1]
+                rsi_high1, rsi_high2 = rsi_highs[i - 1], rsi_highs[i]
+
+                if price_high1 < price_high2 and rsi_high1 > rsi_high2:
+                    # Calculate divergence strength
+                    distance_price = abs(price_high1 - price_high2)
+                    distance_rsi = abs(rsi_high1 - rsi_high2)
+                    divergence_strength = max(divergence_strength, distance_rsi / distance_price)
+
+                    if rsi_high2 > rsi_overbought:
+                        divergence_signal = 0  # Bearish divergence
+                    else:
+                        divergence_signal = 0  # Bearish divergence (weak)
+
+        # If no divergence is detected, return None
+        if divergence_signal is None:
+            return None
+
+        # Normalize divergence strength to a value between 0 and 1
+        divergence_strength = min(1, max(0, divergence_strength))
+
+        return {"divergence_signal": divergence_signal, "divergence_strength": divergence_strength}
 
 
 
     def collect_all_metrics_and_store(self):
-        for i in range(0, len(self.ohlcv_price_data)):
-            self.mock_real_time_data_feed = self.ohlcv_price_data[i]
+        for i in range(0, len(self.price_data)):
+            self.mock_real_time_data_feed.append(self.price_data[i])
+            self.metrics_analyzer.append_price(self.mock_real_time_data_feed)
+
             current_metric = METRIC_POINT
+
             current_metric["price_close"] = self.mock_real_time_data_feed["c"]
             current_metric["avg_price"] = (self.mock_real_time_data_feed["h"] + self.mock_real_time_data_feed["l"]) / 2
             current_metric["price_high"] = self.mock_real_time_data_feed["h"]
@@ -278,33 +379,40 @@ class TestDataCollector:
             current_metric["volatility"]["20_candles"] = self.calculate_volatility(i, 20)
             current_metric["volatility"]["50_candles"] = self.calculate_volatility(i, 50)
 
-            metric_analyzer = MetricAnalyzer(self.ohlcv_price_data[:i+1], self.interval)
-            price_metrics = metric_analyzer.calculate_metrics_for_intervals()
+            current_metric["ema"]["5-point-ema"]["5"] = MetricAnalyzer_2.calculate_ema("5m", "5-point-ema")
+            current_metric["ema"]["15-point-ema"]["5"] = MetricAnalyzer_2.calculate_ema("5m", "15-point-ema")
+            current_metric["ema"]["50-point-ema"]["5"] = MetricAnalyzer_2.calculate_ema("5m", "50-point-ema")
 
-            current_metric["ema"]["5-point-ema"]["5"] = price_metrics["5-Point-EMA-5m"]
-            current_metric["ema"]["15-point-ema"]["5"] = price_metrics["15-Point-EMA-5m"]
-            current_metric["ema"]["50-point-ema"]["5"] = price_metrics["50-Point-EMA-5m"]
+            current_metric["ema"]["5-point-ema"]["15"] = MetricAnalyzer_2.calculate_ema("15m", "5-point-ema")
+            current_metric["ema"]["15-point-ema"]["15"] = MetricAnalyzer_2.calculate_ema("15m", "15-point-ema")
+            current_metric["ema"]["50-point-ema"]["15"] = MetricAnalyzer_2.calculate_ema("15m", "50-point-ema")
 
-            current_metric["ema"]["5-point-ema"]["15"] = price_metrics["5-Point-EMA-15m"]
-            current_metric["ema"]["15-point-ema"]["15"] = price_metrics["15-Point-EMA-15m"]
-            current_metric["ema"]["50-point-ema"]["15"] = price_metrics["50-Point-EMA-15m"]
+            current_metric["ema"]["5-point-ema"]["30"] = MetricAnalyzer_2.calculate_ema("30m", "5-point-ema")
+            current_metric["ema"]["15-point-ema"]["30"] = MetricAnalyzer_2.calculate_ema("30m", "15-point-ema")
+            current_metric["ema"]["50-point-ema"]["30"] = MetricAnalyzer_2.calculate_ema("30m", "50-point-ema")
 
-            current_metric["ema"]["5-point-ema"]["30"] = price_metrics["5-Point-EMA-30m"]  
-            current_metric["ema"]["15-point-ema"]["30"] = price_metrics["15-Point-EMA-30m"]
-            current_metric["ema"]["50-point-ema"]["30"] = price_metrics["50-Point-EMA-30m"]
+            current_metric["rsi"]["current_rsi"]["rsi-5"]["5_min"] = MetricAnalyzer_2.calculate_rsi("5m", 5)
+            current_metric["rsi"]["current_rsi"]["rsi-5"]["15_min"] = MetricAnalyzer_2.calculate_rsi("15m", 5)
+            current_metric["rsi"]["current_rsi"]["rsi-15"]["5_min"] = MetricAnalyzer_2.calculate_rsi("5m", 15)
+            current_metric["rsi"]["current_rsi"]["rsi-15"]["15_min"] = MetricAnalyzer_2.calculate_rsi("15m", 15)
+            current_metric["rsi"]["current_rsi"]["rsi-15"]["30_min"] = MetricAnalyzer_2.calculate_rsi("30m", 15)
+            current_metric["rsi"]["current_rsi"]["rsi-15"]["60_min"] = MetricAnalyzer_2.calculate_rsi("1H", 15)
 
-            current_metric["ema"]["ema_slope_5min"]["5"]["5_candles"] = self.calculate_ema_slopes("5-point-ema", "5", 5)
-            current_metric["ema"]["ema_slope_5min"]["15"]["5_candles"] = self.calculate_ema_slopes("15-point-ema", "5", 5)
-            current_metric["ema"]["ema_slope_5min"]["50"]["5_candles"] = self.calculate_ema_slopes("50-point-ema", "5", 5)
+            current_metric["ema"]["ema_slope_5min"]["5"] = self.calculate_metric_slopes("5-point-ema", "5", 2)
+            current_metric["ema"]["ema_slope_15min"]["15"] = self.calculate_metric_slopes("15-point-ema", "15", 2)
 
-            current_metric["ema"]["ema_slope_15min"]["5"]["5_candles"] = self.calculate_ema_slopes("5-point-ema", "15", 5)
-            current_metric["ema"]["ema_slope_15min"]["15"]["5_candles"] = self.calculate_ema_slopes("15-point-ema", "15", 5)
-            current_metric["ema"]["ema_slope_15min"]["50"]["5_candles"] = self.calculate_ema_slopes("50-point-ema", "15", 5)
-            current_metric["ema"]["ema_slope-15min"]["5"]["10_candles"] = self.calculate_ema_slopes("5-point-ema", "15", 10)
+            current_metric["ema"]["ema_slope_5min"]["5"]["5_candles"] = self.calculate_metric_slopes("5-point-ema", "5", 5)
+            current_metric["ema"]["ema_slope_5min"]["15"]["5_candles"] = self.calculate_metric_slopes("15-point-ema", "5", 5)
+            current_metric["ema"]["ema_slope_5min"]["50"]["5_candles"] = self.calculate_metric_slopes("50-point-ema", "5", 5)
 
-            current_metric["ema"]["ema_slope_30min"]["5"]["5_candles"] = self.calculate_ema_slopes("5-point-ema", "30", 5)
-            current_metric["ema"]["ema_slope_30min"]["15"]["5_candles"] = self.calculate_ema_slopes("15-point-ema", "30", 5)
-            current_metric["ema"]["ema_slope_30min"]["50"]["5_candles"] = self.calculate_ema_slopes("50-point-ema", "30", 5)
+            current_metric["ema"]["ema_slope_15min"]["5"]["5_candles"] = self.calculate_metric_slopes("5-point-ema", "15", 5)
+            current_metric["ema"]["ema_slope_15min"]["15"]["5_candles"] = self.calculate_metric_slopes("15-point-ema", "15", 5)
+            current_metric["ema"]["ema_slope_15min"]["50"]["5_candles"] = self.calculate_metric_slopes("50-point-ema", "15", 5)
+            current_metric["ema"]["ema_slope-15min"]["5"]["10_candles"] = self.calculate_metric_slopes("5-point-ema", "15", 10)
+
+            current_metric["ema"]["ema_slope_30min"]["5"]["5_candles"] = self.calculate_metric_slopes("5-point-ema", "30", 5)
+            current_metric["ema"]["ema_slope_30min"]["15"]["5_candles"] = self.calculate_metric_slopes("15-point-ema", "30", 5)
+            current_metric["ema"]["ema_slope_30min"]["50"]["5_candles"] = self.calculate_metric_slopes("50-point-ema", "30", 5)
 
             current_metric["ema"]["ema_crossovers"]["ema-5-15"]["10_candles"] = self.calculate_ema_crossovers("5-point-ema", "15-point-ema", "5", 10)
             current_metric["ema"]["ema_crossovers"]["ema-5-15"]["5_candles"] = self.calculate_ema_crossovers("5-point-ema", "15-point-ema", "15", 10)
@@ -314,24 +422,18 @@ class TestDataCollector:
             current_metric["ema"]["ema_crossovers"]["ema-15-50"]["5_candles"] = self.calculate_ema_crossovers("15-point-ema", "50-point-ema", "15", 10)
             current_metric["ema"]["ema_crossovers"]["ema-15-50"]["5_candles"] = self.calculate_ema_crossovers("15-point-ema", "50-point-ema", "30", 10)
 
-            current_metric["rsi"]["current_rsi"]["rsi-5"]["5_min"] = price_metrics["5-RSI-5m"]
-            current_metric["rsi"]["current_rsi"]["rsi-5"]["15_min"] = price_metrics["5-RSI-15m"]
-            current_metric["rsi"]["current_rsi"]["rsi-15"]["5_min"] = price_metrics["5-RSI-5m"]
-            current_metric["rsi"]["current_rsi"]["rsi-15"]["15_min"] = price_metrics["15-RSI-5m"]
-            current_metric["rsi"]["current_rsi"]["rsi-15"]["30_min"] = price_metrics["15-RSI-30m"]
-            current_metric["rsi"]["current_rsi"]["rsi-15"]["60_min"] = price_metrics["15-RSI-60m"]
 
-            current_metric["rsi"]["rsi_slope"]["rsi-5"]["5_candles"] = self.calculate_rsi_slopes("rsi-5", "5", 5)
-            current_metric["rsi"]["rsi_slope"]["rsi-15"]["5_candles"] = self.calculate_rsi_slopes("rsi-15", "5", 5)
+            current_metric["rsi"]["rsi_slope"]["rsi-5"]["5_candles"] = self.calculate_metric_slopes("rsi-5", "5", 5)
+            current_metric["rsi"]["rsi_slope"]["rsi-15"]["5_candles"] = self.calculate_metric_slopes("rsi-15", "5", 5)
 
-            current_metric["rsi"]["rsi_divergence"]["rsi-5"] = self.calculate_rsi_divergence("rsi-5", 5) #returns divergence direction and strength
-            current_metric["rsi"]["rsi_divergence"]["rsi-15"] = self.calculate_rsi_divergence("rsi-15", 5)
-            current_metric["rsi"]["rsi_divergence"]["rsi-15"] = self.calculate_rsi_divergence("rsi-15", 15)
-            current_metric["rsi"]["rsi_divergence"]["rsi-15"] = self.calculate_rsi_divergence("rsi-15", 30)
+            current_metric["rsi"]["rsi_divergence"]["rsi-5"] = self.calculate_rsi_divergence("rsi-5", 5, 5) #returns divergence direction and strength
+            current_metric["rsi"]["rsi_divergence"]["rsi-15"]["5m"] = self.calculate_rsi_divergence("rsi-15", 10, 5)
+            current_metric["rsi"]["rsi_divergence"]["rsi-15"]["15m"] = self.calculate_rsi_divergence("rsi-15", 10, 15)
+            current_metric["rsi"]["rsi_divergence"]["rsi-15"]["30m"] = self.calculate_rsi_divergence("rsi-15", 10, 30)
 
-            current_metric["additional_metrics"] = self.cal
-
-
+            current_metric["additional_metrics"]["minute_of_day_utc"] = self.calculate_minute_of_day(i)
+            current_metric["additional_metrics"]["day_of_week_utc"] = self.calculate_day_of_week(i)
+            current_metric["additional_metrics"]["token_age"] = self.calculate_age_in_minutes(i)
 
 
             self.metrics.append(current_metric)
