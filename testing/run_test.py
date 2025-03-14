@@ -71,12 +71,14 @@ if __name__ == "__main__":
 
 
             # print(mid_term_trend)
-            print(tradingEngine.metrics[-1])
+           
            
             
             #add the latest price point and metrics to the plotter
             plotter.add_price_point(historical_data["data"]["items"][i], action, short_term_trend,mid_term_trend, support_zones, resistance_zones)
             # plotter.plot_live()
+            
+        print(tradingEngine.metrics[-1])
             
         print(f"current balance: {portfolio.holdings['USDC']}")
         plotter.plot_static()

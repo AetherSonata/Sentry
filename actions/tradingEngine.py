@@ -1,4 +1,4 @@
-from analytics.price_analytics import  MetricAnalyzer
+from analytics.price_analytics import  MetricAnalyzer, MetricAnalyzer_2
 from analytics.chart_analyzer import ChartAnalyzer
 from testing.utils import find_starting_point
 from collections import Counter
@@ -20,9 +20,11 @@ class TradingEngine:
         self.interval = interval
         self.active_position = None  # This will hold our current (averaged) position
         self.metrics = []
+        self.metrics_2 = []
         self.group_trends = []
         self.portfolio = portfolio
         self.metric_analyzer = MetricAnalyzer(self.interval)
+        self.metric_analyzer_v2 = MetricAnalyzer_2(self.interval, historical_price_data)
 
         self.chartmetrics = None
         self.chartmetrics_printed = False
@@ -45,8 +47,13 @@ class TradingEngine:
         
         # _, max_interval = find_starting_point(self.price_data, self.interval)
         # Append the latest RSI calculation
+        self.metric_analyzer_v2.append_price(self.price_data[-1])
         self.metric_analyzer.update_price_data(self.price_data)
         self.metrics.append(self.metric_analyzer.calculate_metrics_for_intervals())
+        
+        print(f"v2:{self.metric_analyzer_v2.calculate_ema("15m", 15)}")
+        print(f"old:{self.metrics[-1]["15-Point-EMA_15m"]}")
+        
         self.group_trends.append(self.determine_overall_trend()) 
         
         if self.chartmetrics is None:
