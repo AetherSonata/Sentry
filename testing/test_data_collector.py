@@ -191,7 +191,51 @@ class TestDataCollector:
 
         # Return the calculated slope
         return {f"{ema_type}_{timeframe}_slope": slope}
+    
+    def calculate_ema_crossovers(self, short_ema, long_ema, timeframe, n):
+        """
+        Calculates EMA crossovers for the last `n` metrics.
 
+        Args:
+            short_ema (str): The key for the shorter EMA (e.g., "5-point-ema").
+            long_ema (str): The key for the longer EMA (e.g., "15-point-ema").
+            timeframe (str): The timeframe to check crossovers (e.g., "5", "15", "30").
+            n (int): The number of recent candles to analyze.
+
+        Returns:
+            list: A list of length `n` with values:
+                - 1 (bullish crossover)
+                - 0 (bearish crossover)
+                - None (no crossover)
+        """
+
+        # Get the last `n` metrics from the list
+        last_n_metrics = self.metrics[-n:]
+
+        # Ensure there is enough data to process
+        if len(last_n_metrics) < 2:
+            return [None] * len(last_n_metrics)  # Return all None if not enough data
+
+        crossovers = [None] * len(last_n_metrics)  # Initialize list with None
+
+        # Extract EMA values
+        short_ema_values = [metric[short_ema][timeframe] for metric in last_n_metrics]
+        long_ema_values = [metric[long_ema][timeframe] for metric in last_n_metrics]
+
+        # Loop through and check crossovers
+        for i in range(1, len(last_n_metrics)):  # Start from the second value to compare with the previous one
+            prev_short = short_ema_values[i - 1]
+            prev_long = long_ema_values[i - 1]
+            curr_short = short_ema_values[i]
+            curr_long = long_ema_values[i]
+
+            if prev_short <= prev_long and curr_short > curr_long:
+                crossovers[i] = 1  # Bullish crossover
+
+            elif prev_short >= prev_long and curr_short < curr_long:
+                crossovers[i] = 0  # Bearish crossover
+
+        return crossovers
 
 
 
@@ -262,6 +306,32 @@ class TestDataCollector:
             current_metric["ema"]["ema_slope_30min"]["15"]["5_candles"] = self.calculate_ema_slopes("15-point-ema", "30", 5)
             current_metric["ema"]["ema_slope_30min"]["50"]["5_candles"] = self.calculate_ema_slopes("50-point-ema", "30", 5)
 
+            current_metric["ema"]["ema_crossovers"]["ema-5-15"]["10_candles"] = self.calculate_ema_crossovers("5-point-ema", "15-point-ema", "5", 10)
+            current_metric["ema"]["ema_crossovers"]["ema-5-15"]["5_candles"] = self.calculate_ema_crossovers("5-point-ema", "15-point-ema", "15", 10)
+            current_metric["ema"]["ema_crossovers"]["ema-5-15"]["5_candles"] = self.calculate_ema_crossovers("5-point-ema", "15-point-ema", "30", 10)
+
+            current_metric["ema"]["ema_crossovers"]["ema-15-50"]["10_candles"] = self.calculate_ema_crossovers("15-point-ema", "50-point-ema", "5", 10)
+            current_metric["ema"]["ema_crossovers"]["ema-15-50"]["5_candles"] = self.calculate_ema_crossovers("15-point-ema", "50-point-ema", "15", 10)
+            current_metric["ema"]["ema_crossovers"]["ema-15-50"]["5_candles"] = self.calculate_ema_crossovers("15-point-ema", "50-point-ema", "30", 10)
+
+            current_metric["rsi"]["current_rsi"]["rsi-5"]["5_min"] = price_metrics["5-RSI-5m"]
+            current_metric["rsi"]["current_rsi"]["rsi-5"]["15_min"] = price_metrics["5-RSI-15m"]
+            current_metric["rsi"]["current_rsi"]["rsi-15"]["5_min"] = price_metrics["5-RSI-5m"]
+            current_metric["rsi"]["current_rsi"]["rsi-15"]["15_min"] = price_metrics["15-RSI-5m"]
+            current_metric["rsi"]["current_rsi"]["rsi-15"]["30_min"] = price_metrics["15-RSI-30m"]
+            current_metric["rsi"]["current_rsi"]["rsi-15"]["60_min"] = price_metrics["15-RSI-60m"]
+
+            current_metric["rsi"]["rsi_slope"]["rsi-5"]["5_candles"] = self.calculate_rsi_slopes("rsi-5", "5", 5)
+            current_metric["rsi"]["rsi_slope"]["rsi-15"]["5_candles"] = self.calculate_rsi_slopes("rsi-15", "5", 5)
+
+            current_metric["rsi"]["rsi_divergence"]["rsi-5"] = self.calculate_rsi_divergence("rsi-5", 5) #returns divergence direction and strength
+            current_metric["rsi"]["rsi_divergence"]["rsi-15"] = self.calculate_rsi_divergence("rsi-15", 5)
+            current_metric["rsi"]["rsi_divergence"]["rsi-15"] = self.calculate_rsi_divergence("rsi-15", 15)
+            current_metric["rsi"]["rsi_divergence"]["rsi-15"] = self.calculate_rsi_divergence("rsi-15", 30)
+
+            current_metric["additional_metrics"] = self.cal
+
+
 
 
             self.metrics.append(current_metric)
@@ -326,8 +396,7 @@ METRIC_POINT = {
         "ema_crossovers": {
             # Only using 5 and 10 candle lookbacks for crossovers to capture quick shifts
             "ema-5-15": {"5_candles": None, "10_candles": None},
-            "ema-15-50": {"5_candles": None, "10_candles": None},
-           
+            "ema-15-50": {"5_candles": None, "10_candles": None}, 
         }
     },
 

@@ -99,4 +99,3 @@ class MetricAnalyzer:
         self._generate_intervals_to_calculate()
 
 
-
