@@ -9,7 +9,7 @@ TOKEN_ADDRESS = "DjgujfEv2u2qz7PNuS6Ct7bctnxPFihfWE2zBpKZpump"
 INTERVAL = "5m"    # birdeye fetching max 1000 data points of historic data
 SPAN_IN_DAYS = 200
 TESTING_PORT_BALANCE = 100
-STARTING_INDEX = 4000
+STARTING_INDEX = 6500
 OHLCV = False
 
 
@@ -49,6 +49,8 @@ if __name__ == "__main__":
                 
         #initialize trading engine with historical data up to the starting index
         tradingEngine = TradingEngine(historical_data["data"]["items"][:starting_index ], INTERVAL, portfolio)
+
+        print(historical_data["data"]["items"][starting_index])
 
         
         #iterate through historical_data in a loop, starting one interval after the starting index, mocking real-time data feed

@@ -25,6 +25,7 @@ class TradingEngine:
         self.portfolio = portfolio
         self.metric_analyzer = MetricAnalyzer(self.interval)
         self.metric_analyzer_v2 = MetricAnalyzer_2(self.interval, historical_price_data)
+        self.chart_analyzer = ChartAnalyzer(self.interval, historical_price_data)
 
         self.chartmetrics = None
         self.chartmetrics_printed = False
@@ -49,15 +50,15 @@ class TradingEngine:
         # Append the latest RSI calculation
         self.metric_analyzer_v2.append_price(self.price_data[-1])
         self.metric_analyzer.update_price_data(self.price_data)
+        self.chart_analyzer.append_price_data(self.price_data[-1])
+
         self.metrics.append(self.metric_analyzer.calculate_metrics_for_intervals())
-        
-        print(f"v2:{self.metric_analyzer_v2.calculate_ema("15m", 15)}")
-        print(f"old:{self.metrics[-1]["15-Point-EMA_15m"]}")
-        
+                
         self.group_trends.append(self.determine_overall_trend()) 
-        
+
+
         if self.chartmetrics is None:
-            self.chartmetrics = ChartAnalyzer(self.price_data, self.interval).find_support_resistance_zones()
+            self.chartmetrics = self.chart_analyzer.find_support_resistance_zones(len(self.price_data))
             self.chartmetrics_printed = True
             print("calculating metrics")
 

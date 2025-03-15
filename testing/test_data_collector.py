@@ -2,22 +2,26 @@ from testing.utils import fetch_complete_test_data, load_historical_price, save_
 from analytics.price_analytics import MetricAnalyzer_2
 from analytics.chart_analyzer import ChartAnalyzer
 import numpy as np
+import datetime
 
 TOKEN_ADDRESS = "9m3nh7YDoF1WSYpNxCjKVU8D1MrXsWRic4HqRaTdcTYB"
 
 MIN_INTERVAL = "5m"    # birdeye fetching max 1000 data points of historic data
 SPAN_IN_DAYS = 20
 
+
 class TestDataCollector:
-    def __init__(self, token_address, interval):
-        self.metrics_analyzer = MetricAnalyzer_2(interval)
+    def __init__(self, token_address, interval, price_data):
         self.token_address = token_address
         self.interval = interval
         self.interval_in_minutes = self.get_interval_in_minutes(interval)
-        self.price_data = self.collect_historic_ohlcv_price_data()
+        self.price_data = price_data
         self.metrics = None
 
-        self.mock_real_time_data_feed = None
+        self.data_feed = None
+
+        self.metrics_analyzer = MetricAnalyzer_2(interval)
+        self.chart_analyzer = ChartAnalyzer(interval)
 
     
     def get_interval_in_minutes(self, interval):
@@ -42,39 +46,29 @@ class TestDataCollector:
         
         return interval_mapping.get(interval, None)  # Returns None if the interval is invalid
 
-    def collect_historic_ohlcv_price_data(self):
-        try: 
-            ohlcv_price_data = load_historical_price(filename= f"\chart_data\histocal_price_data_{self.token_address}_{self.interval}_{SPAN_IN_DAYS}_ohlcv.json")
-        except Exception as e:
-            print(f"Error loading data: {e}")
-        
-        if not self.ohlcv_price_data:
-            print("no data found, fetching from API")
-            ohlcv_price_data = fetch_complete_test_data(self.token_address, MIN_INTERVAL, SPAN_IN_DAYS, ohlcv=True)
-            print("Data fetched from API.")
-            try:
-                save_historical_price(ohlcv_price_data, filename= f"\chart_data\histocal_price_data_{self.token_address}_{self.interval}_{SPAN_IN_DAYS}_ohlcv.json")
-            except Exception as e:
-                print(f"Error saving data: {e}")
 
-        return ohlcv_price_data
-        
-    def calculate_price_momentum(self, i, span_in_minutes):
+    def calculate_price_momentum(self, span_in_minutes, interval_in_minutes):
         """Calculates relative momentum (price change percentage) for a given span in minutes."""
+        # Convert span to number of candles based on interval
+        num_candles = span_in_minutes // interval_in_minutes
 
-        num_candles = span_in_minutes // self.minutes  # Convert minutes to number of candles
+        # Current index is the length of data_feed minus 1 (last entry)
+        i = len(self.data_feed) - 1
 
-        if num_candles >= i:  # Not enough historical data available
-            return None
+        # Check if there's enough historical data
+        if i < num_candles or i >= len(self.data_feed):
+            return 0.0  # Return 0 for RL consistency if not enough data
 
-        current_price = self.ohlcv_price_data[i]["close"]
-        past_price = self.ohlcv_price_data[i - num_candles]["close"]  # Get the past price for the interval
+        # Current price is the last entry in self.data_feed
+        current_price = self.data_feed[-1]["value"]
+        
+        # Past price is num_candles ago from the current index
+        past_price = self.data_feed[i - num_candles]["value"]
 
         # Calculate momentum (percentage change)
-        momentum = ((current_price - past_price) / past_price) * 100
+        momentum = ((current_price - past_price) / past_price) * 100 if past_price != 0 else 0.0
 
         return momentum
-
 
     def calculate_volatility(self, window_sizes=[20, 50]):
         """Calculate the standard deviation (volatility) for custom window sizes and store in self.metrics."""
@@ -135,6 +129,12 @@ class TestDataCollector:
         
         return volume_change_percentage
     
+    def calculate_pseudo_atr(self, i, window):
+        if i < window:
+            return 0.0
+        window_data = self.data_feed["value"][i-window:i]
+        return np.mean(np.abs(np.diff(window_data)))  # Average absolute price change
+        
     def calculate_vwap(self, period_candles, end_index):
         """
         Calculates the Volume Weighted Average Price (VWAP) from (end_index - period_candles + 1) to end_index.
@@ -164,6 +164,12 @@ class TestDataCollector:
         vwap = total_price_volume / total_volume
         return vwap
     
+    def calculate_volatility(self, i, window):
+        if i < window:
+            return 0.0
+        window_data = self.mock_real_time_data_feed["c"][i-window:i]
+        return np.std(window_data)
+    
     def calculate_metric_slopes(self, metric_type, timeframe, n, averaged=True):
         # Get the last `n` metrics from the list
         last_n_metrics = self.metrics[-n:]
@@ -188,22 +194,21 @@ class TestDataCollector:
         if averaged:
             slopes = [(metric_values[i] - metric_values[i - 1]) for i in range(1, len(metric_values))]
             avg_slope = sum(slopes) / len(slopes)  # Rolling average slope
-            return {f"{metric_type}_{timeframe}_avg_slope": avg_slope}
+            return avg_slope
 
         # If we want the linear slope (using the first and last value over the period)
         else:
             linear_slope = (metric_values[-1] - metric_values[0]) / (n - 1)  # Linear slope
-            return {f"{metric_type}_{timeframe}_linear_slope": linear_slope}
+            return avg_slope
 
 
-    def calculate_ema_crossovers(self, short_ema, long_ema, timeframe, n):
+    def calculate_ema_crossovers(self, short_key, long_key, n):
         """
-        Calculates EMA crossovers for the last `n` metrics.
+        Calculates EMA crossovers for the last `n` metrics using nested 'ema' keys.
 
         Args:
-            short_ema (str): The key for the shorter EMA (e.g., "5-point-ema").
-            long_ema (str): The key for the longer EMA (e.g., "15-point-ema").
-            timeframe (str): The timeframe to check crossovers (e.g., "5", "15", "30").
+            short_key (str): The subkey for the shorter EMA (e.g., "short").
+            long_key (str): The subkey for the longer EMA (e.g., "medium").
             n (int): The number of recent candles to analyze.
 
         Returns:
@@ -212,28 +217,21 @@ class TestDataCollector:
                 - 0 (bearish crossover)
                 - None (no crossover)
         """
-
-        # Get the last `n` metrics
         last_n_metrics = self.metrics[-n:]
-
-        # Ensure there is enough data
         if len(last_n_metrics) < 2:
-            return [None] * len(last_n_metrics)
+            return [None] * max(n, len(last_n_metrics))  # Pad to n if too short
 
-        crossovers = [None] * len(last_n_metrics)  # Initialize list with None
-
-        # Extract EMA values, handling missing data
+        crossovers = [None] * max(n, len(last_n_metrics))  # Fixed length n
         short_ema_values = []
         long_ema_values = []
 
         for metric in last_n_metrics:
             try:
-                short_ema_values.append(metric[short_ema][timeframe])
-                long_ema_values.append(metric[long_ema][timeframe])
-            except KeyError:
-                return [None] * len(last_n_metrics)  # Return None for all if a value is missing
+                short_ema_values.append(metric["ema"][short_key])
+                long_ema_values.append(metric["ema"][long_key])
+            except (KeyError, TypeError):
+                return [None] * n  # Return None list if data is missing
 
-        # Compute crossovers
         for i in range(1, len(last_n_metrics)):
             prev_short = short_ema_values[i - 1]
             prev_long = long_ema_values[i - 1]
@@ -335,194 +333,229 @@ class TestDataCollector:
         divergence_strength = min(1, max(0, divergence_strength))
 
         return {"divergence_signal": divergence_signal, "divergence_strength": divergence_strength}
+    from datetime import datetime
 
 
-
-    def collect_all_metrics_and_store(self):
-        for i in range(0, len(self.price_data)):
-            self.mock_real_time_data_feed.append(self.price_data[i])
-            self.metrics_analyzer.append_price(self.mock_real_time_data_feed)
-
-            current_metric = METRIC_POINT
-
-            current_metric["price_close"] = self.mock_real_time_data_feed["c"]
-            current_metric["avg_price"] = (self.mock_real_time_data_feed["h"] + self.mock_real_time_data_feed["l"]) / 2
-            current_metric["price_high"] = self.mock_real_time_data_feed["h"]
-            current_metric["price_low"] = self.mock_real_time_data_feed["l"]
-            current_metric["price_open"] = self.mock_real_time_data_feed["o"]
-            current_metric["last_20_prices"] = self.collect_last_20_prices(i)
+    def get_time_features(self, unix_time):
+        """
+        Extracts minute of the day and day of the week from a Unix timestamp in UTC.
+        Args:
+            unix_time (int): Unix timestamp in seconds (e.g., 1741124400).
+        Returns:
+            dict: {"minute_of_day": int (0-1439), "day_of_week": int (0-6)}
+        """
+        # Convert Unix timestamp to UTC datetime
+        utc_dt = datetime.fromtimestamp(unix_time, tz=timezone.utc)
         
-            current_metric["volume"]["current_volume"] = self.mock_real_time_data_feed["v"]
-            current_metric["volume"]["avg_volume_last_10_candles"] = self.calculate_avg_volume(i, 10)
-            current_metric["volume"]["avg_volume_last_50_candles"] = self.calculate_avg_volume(i, 50)
-            current_metric["volume"]["avg_volume_last_100_candles"] = self.calculate_avg_volume(i, 100)
-            current_metric["volume"]["volume_change_percentage"]["5"] = self.calculate_volume_change_percentage(i, 5)
-            current_metric["volume"]["volume_change_percentage"]["15"] = self.calculate_volume_change_percentage(i, 15)
-            current_metric["volume"]["volume_change_percentage"]["30"] = self.calculate_volume_change_percentage(i, 30)
-            current_metric["volume"]["volume_change_percentage"]["60"] = self.calculate_volume_change_percentage(i, 60)
-            current_metric["volume"]["volume_change_percentage"]["120"] = self.calculate_volume_change_percentage(i, 120)
-            current_metric["volume"]["volume_change_percentage"]["240"] = self.calculate_volume_change_percentage(i, 240)
-
-            current_metric["VWAP_last_10_candles"] = self.calculate_vwap(10, i)
-            current_metric["VWAP_last_50_candles"] = self.calculate_vwap(50, i)
-
-            chart_analyzer = ChartAnalyzer(self.ohlcv_price_data[:i+1], self.interval)
-            current_metric["support_resistances"] = chart_analyzer.find_support_resistance_zones()["support_zones"]
-
-            current_metric["price_change_percentage"]["5"] = self.calculate_price_momentum(i, 5)
-            current_metric["price_change_percentage"]["15"] = self.calculate_price_momentum(i, 15)
-            current_metric["price_change_percentage"]["30"] = self.calculate_price_momentum(i, 30)
-            current_metric["price_change_percentage"]["60"] = self.calculate_price_momentum(i, 60)
-            current_metric["price_change_percentage"]["120"] = self.calculate_price_momentum(i, 120)
-            current_metric["price_change_percentage"]["240"] = self.calculate_price_momentum(i, 240)
-
-            current_metric["volatility"]["20_candles"] = self.calculate_volatility(i, 20)
-            current_metric["volatility"]["50_candles"] = self.calculate_volatility(i, 50)
-
-            current_metric["ema"]["5-point-ema"]["5"] = MetricAnalyzer_2.calculate_ema("5m", "5-point-ema")
-            current_metric["ema"]["15-point-ema"]["5"] = MetricAnalyzer_2.calculate_ema("5m", "15-point-ema")
-            current_metric["ema"]["50-point-ema"]["5"] = MetricAnalyzer_2.calculate_ema("5m", "50-point-ema")
-
-            current_metric["ema"]["5-point-ema"]["15"] = MetricAnalyzer_2.calculate_ema("15m", "5-point-ema")
-            current_metric["ema"]["15-point-ema"]["15"] = MetricAnalyzer_2.calculate_ema("15m", "15-point-ema")
-            current_metric["ema"]["50-point-ema"]["15"] = MetricAnalyzer_2.calculate_ema("15m", "50-point-ema")
-
-            current_metric["ema"]["5-point-ema"]["30"] = MetricAnalyzer_2.calculate_ema("30m", "5-point-ema")
-            current_metric["ema"]["15-point-ema"]["30"] = MetricAnalyzer_2.calculate_ema("30m", "15-point-ema")
-            current_metric["ema"]["50-point-ema"]["30"] = MetricAnalyzer_2.calculate_ema("30m", "50-point-ema")
-
-            current_metric["rsi"]["current_rsi"]["rsi-5"]["5_min"] = MetricAnalyzer_2.calculate_rsi("5m", 5)
-            current_metric["rsi"]["current_rsi"]["rsi-5"]["15_min"] = MetricAnalyzer_2.calculate_rsi("15m", 5)
-            current_metric["rsi"]["current_rsi"]["rsi-15"]["5_min"] = MetricAnalyzer_2.calculate_rsi("5m", 15)
-            current_metric["rsi"]["current_rsi"]["rsi-15"]["15_min"] = MetricAnalyzer_2.calculate_rsi("15m", 15)
-            current_metric["rsi"]["current_rsi"]["rsi-15"]["30_min"] = MetricAnalyzer_2.calculate_rsi("30m", 15)
-            current_metric["rsi"]["current_rsi"]["rsi-15"]["60_min"] = MetricAnalyzer_2.calculate_rsi("1H", 15)
-
-            current_metric["ema"]["ema_slope_5min"]["5"] = self.calculate_metric_slopes("5-point-ema", "5", 2)
-            current_metric["ema"]["ema_slope_15min"]["15"] = self.calculate_metric_slopes("15-point-ema", "15", 2)
-
-            current_metric["ema"]["ema_slope_5min"]["5"]["5_candles"] = self.calculate_metric_slopes("5-point-ema", "5", 5)
-            current_metric["ema"]["ema_slope_5min"]["15"]["5_candles"] = self.calculate_metric_slopes("15-point-ema", "5", 5)
-            current_metric["ema"]["ema_slope_5min"]["50"]["5_candles"] = self.calculate_metric_slopes("50-point-ema", "5", 5)
-
-            current_metric["ema"]["ema_slope_15min"]["5"]["5_candles"] = self.calculate_metric_slopes("5-point-ema", "15", 5)
-            current_metric["ema"]["ema_slope_15min"]["15"]["5_candles"] = self.calculate_metric_slopes("15-point-ema", "15", 5)
-            current_metric["ema"]["ema_slope_15min"]["50"]["5_candles"] = self.calculate_metric_slopes("50-point-ema", "15", 5)
-            current_metric["ema"]["ema_slope-15min"]["5"]["10_candles"] = self.calculate_metric_slopes("5-point-ema", "15", 10)
-
-            current_metric["ema"]["ema_slope_30min"]["5"]["5_candles"] = self.calculate_metric_slopes("5-point-ema", "30", 5)
-            current_metric["ema"]["ema_slope_30min"]["15"]["5_candles"] = self.calculate_metric_slopes("15-point-ema", "30", 5)
-            current_metric["ema"]["ema_slope_30min"]["50"]["5_candles"] = self.calculate_metric_slopes("50-point-ema", "30", 5)
-
-            current_metric["ema"]["ema_crossovers"]["ema-5-15"]["10_candles"] = self.calculate_ema_crossovers("5-point-ema", "15-point-ema", "5", 10)
-            current_metric["ema"]["ema_crossovers"]["ema-5-15"]["5_candles"] = self.calculate_ema_crossovers("5-point-ema", "15-point-ema", "15", 10)
-            current_metric["ema"]["ema_crossovers"]["ema-5-15"]["5_candles"] = self.calculate_ema_crossovers("5-point-ema", "15-point-ema", "30", 10)
-
-            current_metric["ema"]["ema_crossovers"]["ema-15-50"]["10_candles"] = self.calculate_ema_crossovers("15-point-ema", "50-point-ema", "5", 10)
-            current_metric["ema"]["ema_crossovers"]["ema-15-50"]["5_candles"] = self.calculate_ema_crossovers("15-point-ema", "50-point-ema", "15", 10)
-            current_metric["ema"]["ema_crossovers"]["ema-15-50"]["5_candles"] = self.calculate_ema_crossovers("15-point-ema", "50-point-ema", "30", 10)
-
-
-            current_metric["rsi"]["rsi_slope"]["rsi-5"]["5_candles"] = self.calculate_metric_slopes("rsi-5", "5", 5)
-            current_metric["rsi"]["rsi_slope"]["rsi-15"]["5_candles"] = self.calculate_metric_slopes("rsi-15", "5", 5)
-
-            current_metric["rsi"]["rsi_divergence"]["rsi-5"] = self.calculate_rsi_divergence("rsi-5", 5, 5) #returns divergence direction and strength
-            current_metric["rsi"]["rsi_divergence"]["rsi-15"]["5m"] = self.calculate_rsi_divergence("rsi-15", 10, 5)
-            current_metric["rsi"]["rsi_divergence"]["rsi-15"]["15m"] = self.calculate_rsi_divergence("rsi-15", 10, 15)
-            current_metric["rsi"]["rsi_divergence"]["rsi-15"]["30m"] = self.calculate_rsi_divergence("rsi-15", 10, 30)
-
-            current_metric["additional_metrics"]["minute_of_day_utc"] = self.calculate_minute_of_day(i)
-            current_metric["additional_metrics"]["day_of_week_utc"] = self.calculate_day_of_week(i)
-            current_metric["additional_metrics"]["token_age"] = self.calculate_age_in_minutes(i)
-
-
-            self.metrics.append(current_metric)
-            print(f"Metrics collected for index {i}")
-
-
-
-
-
-
-METRIC_POINT = {
-    # Price-related features
-    "price_close": None,
-    "price_open": None,
-    "price_high": None,
-    "price_low": None,
-    "avg_price": None,
-    "last_20_prices": [],  # A smaller historical window for quick reactions
-
-    # Volume-related features
-    "volume": {
-        "current_volume": None,
-        "avg_volume_last_10_candles": None,
-        "avg_volume_last_50_candles": None,
-        "avg_volume_last_100_candles": None,
-        "volume_change_percentage": {
-            "5": None, "15": None, "30": None, "60": None, "120": None, "240": None
+        # Minute of the day: hours * 60 + minutes (0-1439)
+        minute_of_day = utc_dt.hour * 60 + utc_dt.minute
+        
+        # Day of the week: 0 (Monday) to 6 (Sunday)
+        day_of_week = utc_dt.weekday()
+        
+        return {
+            "minute_of_day": minute_of_day,
+            "day_of_week": day_of_week
         }
-    },
-
-    # Price-Volume weighted average price
-    "VWAP_last_10_candles": None,
-    "VWAP_last_50_candles": None,
-
-    # Support and resistance levels (with strength indicating how often they've been tested)
-    "support_resistance": None,
-
-    # Relative momentum (price change percentages) for various spans
-    "price_change_percentage": {
-        "5": None, "15": None, "30": None, "60": None, "120": None, "240": None
-    },
-
-    # Volatility (using standard deviation of the last 20 and 50 candles)
-    "volatility": {
-        "20_candles": None, "50_candles": None
-    },
-
-    # EMA-related features
-    "ema": {
-        "current_ema": {
-            "ema-5": None,
-            "ema-15": None,
-            "ema-50": None,
-            "ema-200": None
-        },
-        "ema_slope": {
-            # Using a 5-candle lookback for the short-term EMAs; for longer-term, a 10-candle slope may be more stable.
-            "ema-5": {"5_candles": None},
-            "ema-15": {"5_candles": None},
-            "ema-50": {"5_candles": None, "10_candles": None},
-        },
-        "ema_crossovers": {
-            # Only using 5 and 10 candle lookbacks for crossovers to capture quick shifts
-            "ema-5-15": {"5_candles": None, "10_candles": None},
-            "ema-15-50": {"5_candles": None, "10_candles": None}, 
-        }
-    },
-
-    # RSI-related features (focusing on more responsive timeframes)
-    "rsi": {
-        "current_rsi": {
-            # Use 5-minute RSI for very responsive signals and 15-minute RSI for a slightly broader view.
-            "rsi-5": {"5_min": None},
-            "rsi-15": {"15_min": None}
-        },
-        "rsi_slope": {
-            "rsi-5": {"5_candles": None},
-            "rsi-15": {"5_candles": None}
-        },
-        "rsi_divergence": {
-            # For divergence, include a lookback (which can be dynamic) and signal strength.
-            "rsi-5": {"divergence_direction": None, "divergence_strength": None, "lookback": None},
-            "rsi-15": {"divergence_direction": None, "divergence_strength": None, "lookback": None}
-        }
-    }
-}
-
-
     
+    def calculate_peak_distance(self):
+        """
+        Calculates the percentage distance from the all-time peak price using all data in self.data_feed.
 
+        Returns:
+            float: Percentage difference from the peak price (negative if below, positive if above).
+                Returns 0.0 if insufficient data or peak is 0.
+        """
+        # Ensure data exists
+        if not self.data_feed:
+            return 0.0
+        
+        # Extract all prices from self.data_feed
+        prices = [entry["value"] for entry in self.data_feed]
+        
+        # Current price is the last entry
+        current_price = self.data_feed[-1]["value"]
+        # Peak price is the maximum of all data
+        peak_price = max(prices)
+        
+        # Calculate percentage distance from peak
+        if peak_price == 0:
+            return 0.0  # Avoid division by zero
+        peak_distance = ((current_price - peak_price) / peak_price) * 100
+        
+        return peak_distance
     
+    def calculate_token_age(self):
+        """
+        Calculates the token age in minutes from the earliest to the latest entry in self.data_feed.
 
+        Returns:
+            float: Token age in minutes. Returns 0.0 if insufficient data.
+        """
+        # Ensure there’s at least one entry
+        if not self.data_feed or len(self.data_feed) < 1:
+            return 0.0
+        
+        # Get Unix timestamps
+        earliest_time = self.data_feed[0]["unixTime"]
+        current_time = self.data_feed[-1]["unixTime"]
+        
+        # Calculate age in seconds, then convert to minutes
+        age_seconds = current_time - earliest_time
+        age_minutes = age_seconds / 60.0  # Float for precision
+        
+        # Ensure non-negative result
+        return max(0.0, age_minutes)
+    
+ 
+    def calculate_drawdown(self, lookback_short=48, lookback_long=288):
+        """
+        Calculates percentage drawdown from peak prices over short and long lookback periods.
+
+        Args:
+            lookback_short (int): Short-term lookback in candles (e.g., 48 = 4hr on 5min chart).
+            lookback_long (int): Long-term lookback in candles (e.g., 288 = 24hr on 5min chart).
+
+        Returns:
+            dict: {"short": float, "long": float} - % drop from peaks, 0.0 if insufficient data.
+        """
+        if not self.data_feed or len(self.data_feed) < 2:
+            return {"short": 0.0, "long": 0.0}
+        
+        # Current price is the latest entry
+        current_price = self.data_feed[-1]["value"]
+        
+        # Short-term drawdown (e.g., 4hr)
+        start_idx_short = max(0, len(self.data_feed) - lookback_short)
+        prices_short = [entry["value"] for entry in self.data_feed[start_idx_short:]]
+        peak_short = max(prices_short)
+        drawdown_short = ((current_price - peak_short) / peak_short) * 100 if peak_short != 0 else 0.0
+        
+        # Long-term drawdown (e.g., 24hr)
+        start_idx_long = max(0, len(self.data_feed) - lookback_long)
+        prices_long = [entry["value"] for entry in self.data_feed[start_idx_long:]]
+        peak_long = max(prices_long)
+        drawdown_long = ((current_price - peak_long) / peak_long) * 100 if peak_long != 0 else 0.0
+        
+        return {
+            "short": drawdown_short,
+            "long": drawdown_long
+        }
+
+
+
+from datetime import datetime, timezone
+
+def collect_all_metrics_and_store(self):
+    if not hasattr(self, 'data_feed'):
+        self.data_feed = self.price_data.copy()  # Initialize with historical data
+    
+    for i in range(len(self.price_data)):
+        # Historical: overwrite; Real-time: append
+        if i < len(self.data_feed):
+            self.data_feed[i] = self.price_data[i]
+        else:
+            self.data_feed.append(self.price_data[i])
+        
+        # Update analyzers
+        self.metrics_analyzer.append_price(self.data_feed[-1])
+        self.chart_analyzer.append_price_data(self.data_feed[-1])
+        
+        # Current price
+        current_price = self.data_feed[-1]["value"]
+        
+        # Calculate zones and filter
+        zones = self.chart_analyzer.find_support_resistance_zones(i)
+        support_zones_raw = [zone for zone in zones["support_zones"] if zone["zone_level"] < current_price]
+        resistance_zones_raw = [zone for zone in zones["resistance_zones"] if zone["zone_level"] > current_price]
+        
+        # Normalize zones (3 each)
+        def normalize_zones(zone_list, max_zones=3):
+            zone_list.sort(key=lambda x: x["strength"], reverse=True)  # Strongest first
+            normalized = {}
+            for j in range(max_zones):
+                prefix = f"level_{j+1}"
+                if j < len(zone_list) and current_price != 0:
+                    level = zone_list[j]["zone_level"]
+                    strength = zone_list[j]["strength"]
+                    normalized[f"{prefix}_dist"] = ((level - current_price) / current_price) * 100  # % distance
+                    normalized[f"{prefix}_strength"] = strength  # 0-1
+                else:
+                    normalized[f"{prefix}_dist"] = 0.0
+                    normalized[f"{prefix}_strength"] = 0.0
+            return normalized
+        
+        support_zones = normalize_zones(support_zones_raw)
+        resistance_zones = normalize_zones(resistance_zones_raw)
+        
+        # Time features
+        time_features = self.get_time_features(self.data_feed[-1]["unixTime"])
+        
+        # Add metrics
+        self.metrics.append({})
+        self.metrics[-1] = {
+            "price": current_price,
+            "momentum": {
+                "short": self.calculate_price_momentum(15, 5),   # 15min
+                "medium": self.calculate_price_momentum(60, 5),  # 1hr
+                "long": self.calculate_price_momentum(240, 5),   # 4hr
+            },
+            "volatility": {
+                "pseudo_atr": self.calculate_pseudo_atr(i, 14),  # 70min
+                "short": self.calculate_volatility(i, 6),        # 30min
+            },
+            "rsi": {
+                "short": self.metrics_analyzer.calculate_rsi("5m", 14),      # 70min
+                "middle_short": self.metrics_analyzer.calculate_rsi("15m", 14),  # 210min
+                "long": self.metrics_analyzer.calculate_rsi("1h", 14),       # 14hr
+                "slope": self.calculate_metric_slopes("rsi", "short", 6),    # 30min
+            },
+            "ema": {
+                "short": self.metrics_analyzer.calculate_ema("5m", 10),     # 50min
+                "medium": self.metrics_analyzer.calculate_ema("5m", 50),    # 250min (~4hr)
+                "long": self.metrics_analyzer.calculate_ema("5m", 100),     # 500min (~8hr)
+                "crossover_short_medium": self.calculate_ema_crossovers("short", "medium", 6),  # 10 vs 50, 30min
+                "crossover_medium_long": self.calculate_ema_crossovers("medium", "long", 12),    # 50 vs 100, 60min
+            },
+            # Normalized support zones
+            "support_level_1_dist": support_zones["level_1_dist"],
+            "support_level_1_strength": support_zones["level_1_strength"],
+            "support_level_2_dist": support_zones["level_2_dist"],
+            "support_level_2_strength": support_zones["level_2_strength"],
+            "support_level_3_dist": support_zones["level_3_dist"],
+            "support_level_3_strength": support_zones["level_3_strength"],
+            # Normalized resistance zones
+            "resistance_level_1_dist": resistance_zones["level_1_dist"],
+            "resistance_level_1_strength": resistance_zones["level_1_strength"],
+            "resistance_level_2_dist": resistance_zones["level_2_dist"],
+            "resistance_level_2_strength": resistance_zones["level_2_strength"],
+            "resistance_level_3_dist": resistance_zones["level_3_dist"],
+            "resistance_level_3_strength": resistance_zones["level_3_strength"],
+            "token_age": self.calculate_token_age(),
+            "peak_distance": self.calculate_peak_distance(),
+            "drawdown_tight": self.calculate_drawdown(3, 288)["short"],  # 15min
+            "drawdown_short": self.calculate_drawdown(12, 288)["short"],  # 1hr (was 48)
+            "drawdown_long": self.calculate_drawdown(12, 288)["long"],   # 24hr
+            "time": {
+                "minute_of_day": time_features["minute_of_day"],
+                "day_of_week": time_features["day_of_week"],
+            }
+        }
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+        
