@@ -442,120 +442,87 @@ class TestDataCollector:
             "long": drawdown_long
         }
 
-
-
-from datetime import datetime, timezone
-
-def collect_all_metrics_and_store(self):
-    if not hasattr(self, 'data_feed'):
-        self.data_feed = self.price_data.copy()  # Initialize with historical data
-    
-    for i in range(len(self.price_data)):
-        # Historical: overwrite; Real-time: append
-        if i < len(self.data_feed):
-            self.data_feed[i] = self.price_data[i]
-        else:
-            self.data_feed.append(self.price_data[i])
+    def collect_all_metrics_and_store(self):
+        if not hasattr(self, 'data_feed'):
+            self.data_feed = self.price_data.copy()
         
-        # Update analyzers
-        self.metrics_analyzer.append_price(self.data_feed[-1])
-        self.chart_analyzer.append_price_data(self.data_feed[-1])
-        
-        # Current price
-        current_price = self.data_feed[-1]["value"]
-        
-        # Calculate zones and filter
-        zones = self.chart_analyzer.find_support_resistance_zones(i)
-        support_zones_raw = [zone for zone in zones["support_zones"] if zone["zone_level"] < current_price]
-        resistance_zones_raw = [zone for zone in zones["resistance_zones"] if zone["zone_level"] > current_price]
-        
-        # Normalize zones (3 each)
-        def normalize_zones(zone_list, max_zones=3):
-            zone_list.sort(key=lambda x: x["strength"], reverse=True)  # Strongest first
-            normalized = {}
-            for j in range(max_zones):
-                prefix = f"level_{j+1}"
-                if j < len(zone_list) and current_price != 0:
-                    level = zone_list[j]["zone_level"]
-                    strength = zone_list[j]["strength"]
-                    normalized[f"{prefix}_dist"] = ((level - current_price) / current_price) * 100  # % distance
-                    normalized[f"{prefix}_strength"] = strength  # 0-1
-                else:
-                    normalized[f"{prefix}_dist"] = 0.0
-                    normalized[f"{prefix}_strength"] = 0.0
-            return normalized
-        
-        support_zones = normalize_zones(support_zones_raw)
-        resistance_zones = normalize_zones(resistance_zones_raw)
-        
-        # Time features
-        time_features = self.get_time_features(self.data_feed[-1]["unixTime"])
-        
-        # Add metrics
-        self.metrics.append({})
-        self.metrics[-1] = {
-            "price": current_price,
-            "momentum": {
-                "short": self.calculate_price_momentum(15, 5),   # 15min
-                "medium": self.calculate_price_momentum(60, 5),  # 1hr
-                "long": self.calculate_price_momentum(240, 5),   # 4hr
-            },
-            "volatility": {
-                "pseudo_atr": self.calculate_pseudo_atr(i, 14),  # 70min
-                "short": self.calculate_volatility(i, 6),        # 30min
-            },
-            "rsi": {
-                "short": self.metrics_analyzer.calculate_rsi("5m", 14),      # 70min
-                "middle_short": self.metrics_analyzer.calculate_rsi("15m", 14),  # 210min
-                "long": self.metrics_analyzer.calculate_rsi("1h", 14),       # 14hr
-                "slope": self.calculate_metric_slopes("rsi", "short", 6),    # 30min
-            },
-            "ema": {
-                "short": self.metrics_analyzer.calculate_ema("5m", 10),     # 50min
-                "medium": self.metrics_analyzer.calculate_ema("5m", 50),    # 250min (~4hr)
-                "long": self.metrics_analyzer.calculate_ema("5m", 100),     # 500min (~8hr)
-                "crossover_short_medium": self.calculate_ema_crossovers("short", "medium", 6),  # 10 vs 50, 30min
-                "crossover_medium_long": self.calculate_ema_crossovers("medium", "long", 12),    # 50 vs 100, 60min
-            },
-            # Normalized support zones
-            "support_level_1_dist": support_zones["level_1_dist"],
-            "support_level_1_strength": support_zones["level_1_strength"],
-            "support_level_2_dist": support_zones["level_2_dist"],
-            "support_level_2_strength": support_zones["level_2_strength"],
-            "support_level_3_dist": support_zones["level_3_dist"],
-            "support_level_3_strength": support_zones["level_3_strength"],
-            # Normalized resistance zones
-            "resistance_level_1_dist": resistance_zones["level_1_dist"],
-            "resistance_level_1_strength": resistance_zones["level_1_strength"],
-            "resistance_level_2_dist": resistance_zones["level_2_dist"],
-            "resistance_level_2_strength": resistance_zones["level_2_strength"],
-            "resistance_level_3_dist": resistance_zones["level_3_dist"],
-            "resistance_level_3_strength": resistance_zones["level_3_strength"],
-            "token_age": self.calculate_token_age(),
-            "peak_distance": self.calculate_peak_distance(),
-            "drawdown_tight": self.calculate_drawdown(3, 288)["short"],  # 15min
-            "drawdown_short": self.calculate_drawdown(12, 288)["short"],  # 1hr (was 48)
-            "drawdown_long": self.calculate_drawdown(12, 288)["long"],   # 24hr
-            "time": {
-                "minute_of_day": time_features["minute_of_day"],
-                "day_of_week": time_features["day_of_week"],
+        for i in range(len(self.price_data)):
+            if i < len(self.data_feed):
+                self.data_feed[i] = self.price_data[i]
+            else:
+                self.data_feed.append(self.price_data[i])
+            
+            self.metrics_analyzer.append_price(self.data_feed[-1])
+            self.chart_analyzer.append_price_data(self.data_feed[-1])
+            
+            current_price = self.data_feed[-1]["value"]
+            zones = self.chart_analyzer.find_support_resistance_zones(i)
+            support_zones_raw = [zone for zone in zones["support_zones"] if zone["zone_level"] < current_price]
+            resistance_zones_raw = [zone for zone in zones["resistance_zones"] if zone["zone_level"] > current_price]
+            
+            def normalize_zones(zone_list, max_zones=3):
+                zone_list.sort(key=lambda x: x["strength"], reverse=True)
+                normalized = {}
+                for j in range(max_zones):
+                    prefix = f"level_{j+1}"
+                    if j < len(zone_list) and current_price != 0:
+                        level = zone_list[j]["zone_level"]
+                        strength = zone_list[j]["strength"]
+                        normalized[f"{prefix}_dist"] = ((level - current_price) / current_price) * 100
+                        normalized[f"{prefix}_strength"] = strength
+                    else:
+                        normalized[f"{prefix}_dist"] = 0.0
+                        normalized[f"{prefix}_strength"] = 0.0
+                return normalized
+            
+            support_zones = normalize_zones(support_zones_raw)
+            resistance_zones = normalize_zones(resistance_zones_raw)
+            time_features = self.get_time_features(self.data_feed[-1]["unixTime"])
+            
+            self.metrics.append({})
+            self.metrics[-1] = {
+                "price": current_price,
+                "momentum": {
+                    "short": self.calculate_price_momentum(15, 5),
+                    "medium": self.calculate_price_momentum(60, 5),
+                    "long": self.calculate_price_momentum(240, 5),
+                },
+                "volatility": {
+                    "pseudo_atr": (self.calculate_pseudo_atr(i, 14) / current_price * 100) if current_price != 0 else 0.0,  # % of price / 100 absolute alternative
+                    "short": (self.calculate_volatility(i, 6) / current_price * 100) if current_price != 0 else 0.0,       # % of price
+                },
+                "rsi": {
+                    "short": self.metrics_analyzer.calculate_rsi("5m", 15),
+                    "middle_short": self.metrics_analyzer.calculate_rsi("15m", 15),
+                    "long": self.metrics_analyzer.calculate_rsi("1h", 15),
+                    "slope": self.calculate_metric_slopes("rsi", "short", 6),
+                },
+                "ema": {
+                    "short": self.metrics_analyzer.calculate_ema("5m", 10),
+                    "medium": self.metrics_analyzer.calculate_ema("5m", 50),
+                    "long": self.metrics_analyzer.calculate_ema("5m", 100),
+                    "crossover_short_medium": self.calculate_ema_crossovers("short", "medium", 6),
+                    "crossover_medium_long": self.calculate_ema_crossovers("medium", "long", 12),
+                },
+                "support_level_1_dist": support_zones["level_1_dist"],
+                "support_level_1_strength": support_zones["level_1_strength"],
+                "support_level_2_dist": support_zones["level_2_dist"],
+                "support_level_2_strength": support_zones["level_2_strength"],
+                "support_level_3_dist": support_zones["level_3_dist"],
+                "support_level_3_strength": support_zones["level_3_strength"],
+                "resistance_level_1_dist": resistance_zones["level_1_dist"],
+                "resistance_level_1_strength": resistance_zones["level_1_strength"],
+                "resistance_level_2_dist": resistance_zones["level_2_dist"],
+                "resistance_level_2_strength": resistance_zones["level_2_strength"],
+                "resistance_level_3_dist": resistance_zones["level_3_dist"],
+                "resistance_level_3_strength": resistance_zones["level_3_strength"],
+                "token_age": self.calculate_token_age() / 1440,  # Days, uncapped
+                "peak_distance": self.calculate_peak_distance(),
+                "drawdown_tight": self.calculate_drawdown(3, 288)["short"],
+                "drawdown_short": self.calculate_drawdown(12, 288)["short"],
+                "drawdown_long": self.calculate_drawdown(12, 288)["long"],
+                "time": {
+                    "minute_of_day": time_features["minute_of_day"],  # Raw: 0-1439
+                    "day_of_week": time_features["day_of_week"],      # Raw: 0-6
+                }
             }
-        }
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-        
