@@ -12,11 +12,11 @@ TREND_LOOKBACK = 5
 
 
 class TradingEngine:
-    def __init__(self, historical_price_data, interval, ohlcv=False):
+    def __init__(self, interval, historical_price_data, ohlcv=False):
         """Initialize the trading engine with historical price data, interval settings, and a portfolio."""
         self.price_data = historical_price_data
         self.interval = interval
-
+        print(f"interval:",interval)
         #initialize the metricCollector and calculate metrics for passed historical data
         metric_collector = MetricCollector(interval, self.price_data)
         if historical_price_data:

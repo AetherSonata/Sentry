@@ -9,9 +9,9 @@ class MetricCollector:
         self.interval_in_minutes = get_interval_in_minutes(interval)
         self.price_data = historical_price_data  # List of dicts: [{"value": price, "unixTime": ts}, ...]
 
-        self.indicator_analyzer = IndicatorAnalyzer(interval)
-        self.chart_analyzer = ChartAnalyzer(interval)
-        self.price_analyzer = PriceAnalytics(historical_price_data["value"])
+        self.indicator_analyzer = IndicatorAnalyzer(interval, price_data=self.price_data)
+        self.chart_analyzer = ChartAnalyzer(interval, price_data=self.price_data)
+        self.price_analyzer = PriceAnalytics(historical_price_data)
 
         self.metrics = []
 
@@ -35,7 +35,7 @@ class MetricCollector:
         self.metrics.append(self.collect_all_metrics_for_current_point(len(self.price_data) - 1))
 
     def collect_all_metrics_for_current_point(self, i):
-        current_price = self.price_data[-1]["value"]
+        current_price = self.price_data[-1]
         zones = self.chart_analyzer.find_support_resistance_zones(i)
         support_zones_raw = [zone for zone in zones["support_zones"] if zone["zone_level"] < current_price]
         resistance_zones_raw = [zone for zone in zones["resistance_zones"] if zone["zone_level"] > current_price]
@@ -57,6 +57,7 @@ class MetricCollector:
 
         support_zones = normalize_zones(support_zones_raw)
         resistance_zones = normalize_zones(resistance_zones_raw)
+        print(f"unixTime: {self.price_data[-1]}")
         time_features = get_time_features(self.price_data[-1]["unixTime"])
 
         # Pre-compute dependent values

@@ -1,24 +1,40 @@
 import json
 import os
 
+import os
+import json
+
 def save_historical_data_to_file(data, filename="historical_price.json"):
     """
-    Saves historical price data to a JSON file.
+    Saves historical price data to a JSON file, creating directories if needed.
     
     :param data: The historical price data (dictionary) to save.
-    :param filename: The name of the file to store data.
+    :param filename: The name of the file to store data, can include path (e.g., "folder/subfolder/file.json").
     """
     if data is None:
         print("No data to save.")
         return
     
+    # Extract directory path from filename
+    directory = os.path.dirname(filename)
+    
+    # Create directory if it doesn't exist
+    if directory and not os.path.exists(directory):
+        try:
+            os.makedirs(directory)
+            print(f"Created directory: {directory}")
+        except Exception as e:
+            print(f"Error creating directory {directory}: {e}")
+            return
+    
+    # Save the file
     try:
         with open(filename, "w") as file:
             json.dump(data, file, indent=4)
         print(f"Data successfully saved to {filename}")
     except Exception as e:
         print(f"Error saving data: {e}")
-
+        
 def load_historical_data_from_file(filename="historical_price.json"):
     """
     Loads historical price data from a JSON file.

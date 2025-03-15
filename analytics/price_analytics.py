@@ -9,6 +9,7 @@ class PriceAnalytics:
     def append(self, price_point):
         """Append a new price point, cap at max_window."""
         self.price_data.append(price_point)
+        print(f"price point: {price_point}")
         if len(self.price_data) > self.max_window:
             self.price_data.pop(0)
 
