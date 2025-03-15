@@ -114,3 +114,29 @@ class ChartAnalyzer:
         
         zones_with_strength.sort(key=lambda x: x["strength"], reverse=True)
         return zones_with_strength[:max_zones]
+    
+
+    def calculate_peak_distance(price_data):
+        """Calculates percentage distance from the all-time peak price."""
+        if not price_data:
+            return 0.0
+        prices = [entry["value"] for entry in price_data]
+        current_price = price_data[-1]["value"]
+        peak_price = max(prices)
+        return ((current_price - peak_price) / peak_price) * 100 if peak_price != 0 else 0.0
+
+
+    def calculate_drawdown(price_data, lookback_short=48, lookback_long=288):
+        """Calculates percentage drawdown from peak prices over short and long lookbacks."""
+        if not price_data or len(price_data) < 2:
+            return {"short": 0.0, "long": 0.0}
+        current_price = price_data[-1]["value"]
+        start_idx_short = max(0, len(price_data) - lookback_short)
+        prices_short = [entry["value"] for entry in price_data[start_idx_short:]]
+        peak_short = max(prices_short)
+        drawdown_short = ((current_price - peak_short) / peak_short) * 100 if peak_short != 0 else 0.0
+        start_idx_long = max(0, len(price_data) - lookback_long)
+        prices_long = [entry["value"] for entry in price_data[start_idx_long:]]
+        peak_long = max(prices_long)
+        drawdown_long = ((current_price - peak_long) / peak_long) * 100 if peak_long != 0 else 0.0
+        return {"short": drawdown_short, "long": drawdown_long}

@@ -1,8 +1,8 @@
 
-from testing.utils import fetch_complete_test_data, find_starting_point, load_historical_price, save_historical_price
+from utils.os_utils import fetch_complete_test_data, find_starting_point, load_historical_price, save_historical_price
 from testing.visualization import PricePlotter
 from actions.tradingEngine import TradingEngine
-from actions.testing_portfolio import TestingPortfolio as Portfolio
+from portfolio.testing_portfolio import TestingPortfolio as Portfolio
 
 #global variables for testing
 TOKEN_ADDRESS = "DjgujfEv2u2qz7PNuS6Ct7bctnxPFihfWE2zBpKZpump"
@@ -49,6 +49,7 @@ if __name__ == "__main__":
                 
         #initialize trading engine with historical data up to the starting index
         tradingEngine = TradingEngine(historical_data["data"]["items"][:starting_index ], INTERVAL, portfolio)
+        tradingEngine.initialize_prior_metrics()
 
         print(historical_data["data"]["items"][starting_index])
 

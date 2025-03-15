@@ -1,6 +1,4 @@
-from analytics.price_analytics import  MetricAnalyzer, MetricAnalyzer_2
-from analytics.chart_analyzer import ChartAnalyzer
-from testing.utils import find_starting_point
+from analytics.metric_collector import MetricCollector
 from collections import Counter
 
 # Global Configuration
@@ -11,26 +9,24 @@ STOP_LOSS_PERCENTAGE_LOW = 0.95  # 5% below current price
 STOP_LOSS_PERCENTAGE_HIGH = 0.98 # 3% below current price
 TAKE_PROFIT_PERCENTAGE = 1.07    # 10% above current price
 TREND_LOOKBACK = 5
-SOL_MINT_ADDRESS = "So11111111111111111111111111111111111111112"
+
 
 class TradingEngine:
-    def __init__(self, historical_price_data, interval, portfolio):
+    def __init__(self, historical_price_data, interval, ohlcv=False):
         """Initialize the trading engine with historical price data, interval settings, and a portfolio."""
         self.price_data = historical_price_data
         self.interval = interval
-        self.active_position = None  # This will hold our current (averaged) position
-        self.metrics = []
-        self.metrics_2 = []
-        self.group_trends = []
-        self.portfolio = portfolio
-        self.metric_analyzer = MetricAnalyzer(self.interval)
-        self.metric_analyzer_v2 = MetricAnalyzer_2(self.interval, historical_price_data)
-        self.chart_analyzer = ChartAnalyzer(self.interval, historical_price_data)
 
-        self.chartmetrics = None
-        self.chartmetrics_printed = False
+        #initialize the metricCollector and calculate metrics for passed historical data
+        metric_collector = MetricCollector(interval, self.price_data)
+        if historical_price_data:
+            self.metrics = metric_collector.initialize_metrics()
+        else:
+            self.metrics = []
 
-        print(len(self.price_data))
+
+
+
         self.initialize_prior_metrics()
     
     def initialize_prior_metrics(self):
