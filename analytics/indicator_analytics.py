@@ -130,8 +130,8 @@ class IndicatorAnalyzer:
                 - 0 (bearish crossover)
                 - None (no crossover)
         """
-        print(short_ema_list)
-        print(long_ema_list)
+        # print(f"short_ema_list: {short_ema_list}, long_ema_list: {long_ema_list}, current_short: {current_short}, current_long: {current_long}")
+
         # Combine the input lists with the current values
         short_emas = short_ema_list + [current_short]
         long_emas = long_ema_list + [current_long]

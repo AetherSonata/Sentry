@@ -9,7 +9,6 @@ class PriceAnalytics:
     def append(self, price_point):
         """Append a new price point, cap at max_window."""
         self.price_data.append(price_point)
-        print(f"price point: {price_point}")
         if len(self.price_data) > self.max_window:
             self.price_data.pop(0)
 
@@ -25,38 +24,37 @@ class PriceAnalytics:
 
     def calculate_volatility(self, i, window):
         """Calculate standard deviation (volatility) over a window, using latest data."""
-        print(f"Volatility - i: {i}, window: {window}, len(price_data): {len(self.price_data)}")
         if len(self.price_data) < 2:
-            print("Returning 0.0: insufficient data")
+     
             return 0.0
         # Cap i at the last index
         effective_i = min(i, len(self.price_data) - 1) if i >= 0 else 0
         start_idx = max(0, effective_i - window + 1)
         window_data = [entry["value"] for entry in self.price_data[start_idx:effective_i + 1]]
-        print(f"start_idx: {start_idx}, effective_i: {effective_i}, window_data: {window_data}, len: {len(window_data)}")
+       
         if len(window_data) < 2:
-            print("Returning 0.0: window_data too short")
+   
             return 0.0
         result = np.std(window_data, ddof=1)
-        print(f"Volatility result: {result}")
+
         return result
 
     def calculate_pseudo_atr(self, i, window):
         """Calculate average true range approximation, using latest data."""
-        print(f"Pseudo-ATR - i: {i}, window: {window}, len(price_data): {len(self.price_data)}")
+
         if len(self.price_data) < 2:
-            print("Returning 0.0: insufficient data")
+     
             return 0.0
         # Cap i at the last index
         effective_i = min(i, len(self.price_data) - 1) if i >= 0 else 0
         start_idx = max(0, effective_i - window + 1)
         window_data = [entry["value"] for entry in self.price_data[start_idx:effective_i + 1]]
-        print(f"start_idx: {start_idx}, effective_i: {effective_i}, window_data: {window_data}, len: {len(window_data)}")
+       
         if len(window_data) < 2:
-            print("Returning 0.0: window_data too short")
+
             return 0.0
         diff_data = np.abs(np.diff(window_data))
-        print(f"diff_data: {diff_data}, len: {len(diff_data)}")
+    
         result = np.mean(diff_data)
-        print(f"Pseudo-ATR result: {result}")
+   
         return result

@@ -78,8 +78,8 @@ class MetricCollector:
         data_idx = len(self.price_data) - 1  # Always use the end of price_data
         pseudo_atr = (self.price_analyzer.calculate_pseudo_atr(data_idx, 14) / current_price * 100) if current_price != 0 else 0.0
         volatility_short = (self.price_analyzer.calculate_volatility(data_idx, 6) / current_price * 100) if current_price != 0 else 0.0
-        print(f"Final - i: {i}, data_idx: {data_idx}, pseudo_atr: {pseudo_atr}, volatility_short: {volatility_short}")
-        
+      
+
         rsi_short = self.indicator_analyzer.calculate_rsi("5m", 15)
         rsi_middle_short = self.indicator_analyzer.calculate_rsi("15m", 15)
         rsi_long = self.indicator_analyzer.calculate_rsi("1h", 15)
@@ -89,18 +89,17 @@ class MetricCollector:
         ema_medium = self.indicator_analyzer.calculate_ema("5m", 50)
         ema_long = self.indicator_analyzer.calculate_ema("5m", 100)
 
-        # Extract EMA histories from IndicatorAnalyzer's self.metrics
-        short_ema_values = [m["15-5m"] for m in self.indicator_analyzer.metrics if "15-5m" in m][-5:]
-        medium_ema_values = [m["15-15m"] for m in self.indicator_analyzer.metrics if "15-15m" in m][-5:]
-        long_ema_values = [m["15-1h"] for m in self.indicator_analyzer.metrics if "15-1h" in m][-11:]
+        # Extract EMA histories from MetricCollectoss self.metrics
+        short_ema_values = [m["ema"]["short"] for m in self.metrics if "ema" in m and "short" in m["ema"]][-5:]
+        medium_ema_values = [m["ema"]["medium"] for m in self.metrics if "ema" in m and "medium" in m["ema"]][-5:]
+        medium_ema_values11 = [m["ema"]["medium"] for m in self.metrics if "ema" in m and "medium" in m["ema"]][-11:]
+        long_ema_values = [m["ema"]["long"] for m in self.metrics if "ema" in m and "long" in m["ema"]][-11:]
 
         crossover_short_medium = self.indicator_analyzer.calculate_ema_crossovers(
-            short_ema_values, medium_ema_values,
-            ema_short, ema_medium
+            short_ema_values, medium_ema_values, ema_short, ema_medium
         )
         crossover_medium_long = self.indicator_analyzer.calculate_ema_crossovers(
-            medium_ema_values, long_ema_values,
-            ema_medium, ema_long
+            medium_ema_values11, long_ema_values, ema_medium, ema_long
         )
 
         # Use past metrics (e.g., last 5 points) and append latest rsi_short
