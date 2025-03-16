@@ -85,38 +85,32 @@ class IndicatorAnalyzer:
 
         return rsi
 
+    #TODO might need to change to accept ema values
+    def calculate_indicator_slopes(self, metric_type, interval, n, averaged=True):
+        """Calculate the slope of indicator values over the last n points from self.metrics."""
+        # Construct the key used in self.metrics
+        key = f"{metric_type}-{interval}" if metric_type == "RSI" else f"{n}-{interval}"
 
-    def calculate_indicator_slopes(self, metric_type, timeframe, n, averaged=True):
-        # Get the last `n` metrics from the list
-        last_n_metrics = self.metrics[-n:]
+        # Extract values from self.metrics for the given metric_type and interval
+        metric_values = [metric[key] for metric in self.metrics if key in metric]
 
-        # Ensure we have enough data points
-        if len(last_n_metrics) < 2:
-            return None  
-
-        # Extract metric values while handling missing keys
-        metric_values = []
-        for metric in last_n_metrics:
-            try:
-                metric_values.append(metric[metric_type][timeframe])
-            except KeyError:
-                return None  # Return None if the requested metric type or timeframe is missing
-
-        # Ensure there are at least two valid metric values
+        # Ensure we have enough data points (at least 2 for a slope)
         if len(metric_values) < 2:
             return None  
 
-        # If we want the average slope (using the change between each consecutive value)
+        # Take the last n values
+        last_n_values = metric_values[-n:]
+
+        # If averaged, calculate the average slope between consecutive values
         if averaged:
-            slopes = [(metric_values[i] - metric_values[i - 1]) for i in range(1, len(metric_values))]
+            slopes = [(last_n_values[i] - last_n_values[i - 1]) for i in range(1, len(last_n_values))]
             avg_slope = sum(slopes) / len(slopes)  # Rolling average slope
             return avg_slope
 
-        # If we want the linear slope (using the first and last value over the period)
+        # If not averaged, calculate the linear slope using first and last values
         else:
-            linear_slope = (metric_values[-1] - metric_values[0]) / (n - 1)  # Linear slope
+            linear_slope = (last_n_values[-1] - last_n_values[0]) / (len(last_n_values) - 1)  # Linear slope
             return linear_slope
-
 
     def calculate_ema_crossovers(self, short_ema_list, long_ema_list, current_short, current_long):
         """

@@ -24,19 +24,26 @@ class MetricCollector:
         for i in range(len(self.price_data)):
             self.indicator_analyzer.append_price(self.price_data[i])
             self.chart_analyzer.append_price_data(self.price_data[i])
-            self.price_analyzer.append(self.price_data[i]["value"])
+            self.price_analyzer.append(self.price_data[i])
+            print(f"Processing historical data point {i}")
+            print(f"Price data: {self.price_data[i]}")
             self.metrics.append(self.collect_all_metrics_for_current_point(i))
 
     def add_new_price_point_and_calculate_metrics(self, new_price_point):
         self.price_data.append(new_price_point)
+        print("New price point added: ", new_price_point)
         self.indicator_analyzer.append_price(new_price_point)
         self.chart_analyzer.append_price_data(new_price_point)
         self.price_analyzer.append(new_price_point["value"])
         self.metrics.append(self.collect_all_metrics_for_current_point(len(self.price_data) - 1))
 
     def collect_all_metrics_for_current_point(self, i):
-        current_price = self.price_data[-1]
+        print(f"self.price_data[-1]: {self.price_data[-1]}")  # Debug print
+        print(f"self.price_data[{i}]: {self.price_data[i]}")  # Debug print
+        current_price = self.price_data[-1]["value"]
         zones = self.chart_analyzer.find_support_resistance_zones(i)
+        print(f"zones: {zones}")  # Debug print
+        
         support_zones_raw = [zone for zone in zones["support_zones"] if zone["zone_level"] < current_price]
         resistance_zones_raw = [zone for zone in zones["resistance_zones"] if zone["zone_level"] > current_price]
 
@@ -57,8 +64,11 @@ class MetricCollector:
 
         support_zones = normalize_zones(support_zones_raw)
         resistance_zones = normalize_zones(resistance_zones_raw)
-        print(f"unixTime: {self.price_data[-1]}")
-        time_features = get_time_features(self.price_data[-1]["unixTime"])
+        print(self.price_data[-1])
+        time_features = get_time_features(self.price_data[-1]["unixTime"])  # Corrected to use last price data point
+
+        print(f"support_zones: {support_zones}")  # Debug print
+        print(f"resistance_zones: {resistance_zones}")  # Debug print
 
         # Pre-compute dependent values
         momentum_short = self.price_analyzer.calculate_price_momentum(15, 5) #span in min / interval in min  
@@ -71,18 +81,25 @@ class MetricCollector:
         rsi_short = self.indicator_analyzer.calculate_rsi("5m", 15)
         rsi_middle_short = self.indicator_analyzer.calculate_rsi("15m", 15)
         rsi_long = self.indicator_analyzer.calculate_rsi("1h", 15)
-        rsi_slope = self.indicator_analyzer.calculate_indicator_slopes("rsi", "short", 6, current_value=rsi_short) # in class IndicatorAnalyzer
+        rsi_slope = self.indicator_analyzer.calculate_indicator_slopes("RSI", "5m", 6) # in class IndicatorAnalyzer
         
         ema_short = self.indicator_analyzer.calculate_ema("5m", 10)
         ema_medium = self.indicator_analyzer.calculate_ema("5m", 50)
         ema_long = self.indicator_analyzer.calculate_ema("5m", 100)
 
+        # Extract EMA histories from IndicatorAnalyzer's self.metrics
+        short_ema_values = [m["15-5m"] for m in self.indicator_analyzer.metrics if "15-5m" in m][-5:]
+        medium_ema_values = [m["15-15m"] for m in self.indicator_analyzer.metrics if "15-15m" in m][-5:]
+        long_ema_values = [m["15-1h"] for m in self.indicator_analyzer.metrics if "15-1h" in m][-11:]
+
         crossover_short_medium = self.indicator_analyzer.calculate_ema_crossovers(
-            self.metrics["ema"]["short"][-5:], self.metrics["ema"]["medium"][-5:],
-              current_short=ema_short, current_medium=ema_medium)
+            short_ema_values, medium_ema_values,
+            ema_short, ema_medium
+        )
         crossover_medium_long = self.indicator_analyzer.calculate_ema_crossovers(
-            self.metrics[:11]["ema"]["medium"][-11:], self.metrics[:11]["ema"]["long"][-11:], 
-            current_medium=ema_medium, current_long=ema_long)
+            medium_ema_values, long_ema_values,
+            ema_medium, ema_long
+        )
 
         # Build and return metrics dict
         return {
@@ -121,7 +138,7 @@ class MetricCollector:
             "resistance_level_2_strength": resistance_zones["level_2_strength"],
             "resistance_level_3_dist": resistance_zones["level_3_dist"],
             "resistance_level_3_strength": resistance_zones["level_3_strength"],
-            "token_age": calculate_token_age() / 1440,
+            "token_age": calculate_token_age(self.price_data) / 1440,
             "peak_distance": self.chart_analyzer.calculate_peak_distance(),
             "drawdown_tight": self.chart_analyzer.calculate_drawdown(3, 288)["short"],
             "drawdown_short": self.chart_analyzer.calculate_drawdown(12, 288)["short"],

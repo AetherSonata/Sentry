@@ -16,115 +16,18 @@ class TradingEngine:
         """Initialize the trading engine with historical price data, interval settings, and a portfolio."""
         self.price_data = historical_price_data
         self.interval = interval
-        print(f"interval:",interval)
         #initialize the metricCollector and calculate metrics for passed historical data
-        metric_collector = MetricCollector(interval, self.price_data)
-        if historical_price_data:
-            self.metrics = metric_collector.initialize_metrics()
-        else:
-            self.metrics = []
+        self.metric_collector = MetricCollector(interval, self.price_data)
+        self.metrics = self.metric_collector.metrics
 
-
-
-
-        self.initialize_prior_metrics()
-    
-    def initialize_prior_metrics(self):
-        # Initialize the metric analyzer with historical price data  
-        lookback = TREND_LOOKBACK
-        for i in range(lookback):
-            lookback -= 1
-            self.metric_analyzer.update_price_data(self.price_data[:(len(self.price_data) - lookback )])  
-            self.metrics.append(self.metric_analyzer.calculate_metrics_for_intervals())
+    def check_for_action(self, price_data):
+        self.add_new_price_point(price_data[-1])
+        self.metric_collector.add_new_price_point_and_calculate_metrics(self.price_data[-1])
         
-            
-
-    def check_for_trading_action(self, token_address):
-        # Calculate max interval RSI for the latest price data
-        
-        # _, max_interval = find_starting_point(self.price_data, self.interval)
-        # Append the latest RSI calculation
-        self.metric_analyzer_v2.append_price(self.price_data[-1])
-        self.metric_analyzer.update_price_data(self.price_data)
-        self.chart_analyzer.append_price_data(self.price_data[-1])
-
-        self.metrics.append(self.metric_analyzer.calculate_metrics_for_intervals())
-                
-        self.group_trends.append(self.determine_overall_trend()) 
-
-
-        if self.chartmetrics is None:
-            self.chartmetrics = self.chart_analyzer.find_support_resistance_zones(len(self.price_data))
-            self.chartmetrics_printed = True
-            print("calculating metrics")
-
-        current_price = self.price_data[-1]["value"]
-
-        action = "NONE"
-
-        
-
-        if self.active_position:
-            # If we have an active position, check for exit or to add to the position
-            if self.check_if_sell_signal(self.active_position, current_price):
-                # Sell the entire position
-
-                action="SOLD"
-
-                # if self.portfolio.sell(token_address, self.active_position["amount"], current_price, slippage=SLIPPAGE_PERCENTAGE):
-                #     action = "SOLD"
-                #     self.active_position = None
-                # else:
-                #     action = "SELLING_ERROR"
-
-
-
-            # elif self.check_if_add_to_position(self.active_position, current_price):
-            #     # Buy additional tokens (averaging down) while keeping the initial stop loss range
-            #     additional_amount = self.calculate_buy_amount(current_price)
-            #     if additional_amount > 0 and self.portfolio.buy(token_address, current_price, additional_amount, slippage=SLIPPAGE_PERCENTAGE):
-            #         # Calculate the new weighted average entry price
-            #         old_amount = self.active_position["amount"]
-            #         old_avg = self.active_position["avg_entry"]
-            #         # For buy orders, slippage increases the effective price paid:
-            #         adjusted_price = current_price * (1 + SLIPPAGE_PERCENTAGE)
-            #         new_total_amount = old_amount + additional_amount
-            #         new_avg = ((old_avg * old_amount) + (adjusted_price * additional_amount)) / new_total_amount
-            #         self.active_position["avg_entry"] = new_avg
-            #         self.active_position["amount"] = new_total_amount
-            #         # Keep the original stop loss range unchanged
-            #         action = "ADDED"
-            #     else:
-            #         action = "ADDING_ERROR"
-            # else:
-            #     action = "HOLD"
-        else:
-            # No active position: check for a buy signal
-            if self.check_if_buy_signal():
-                buy_amount = self.calculate_buy_amount(current_price)
-                if buy_amount > 0 and self.portfolio.buy(token_address, current_price, buy_amount, slippage=SLIPPAGE_PERCENTAGE):
-                    # Open a new active position using the slippage-adjusted entry price
-                    adjusted_price = current_price * (1 + SLIPPAGE_PERCENTAGE)
-                    self.active_position = {
-                        "avg_entry": adjusted_price,
-                        "amount": buy_amount,
-                        "stop_loss_range": self.calculate_stop_loss_range(current_price),
-                        "take_profit": self.calculate_take_profit(current_price)
-                    }
-                    action = "BOUGHT"
-                    self.active_position=None
-                    
-                else:
-                    action = "BUYING_ERROR"
-            elif self.check_if_sell_signal(self.active_position, current_price):
-                action = "SOLD"
-            else:
-                action = "NONE"
-        # print(action)
-        return action
 
     def check_if_buy_signal(self):
         # wait for the first live indexes before calculating
+        
         if len(self.metrics) < 60:                                  # TODO remove test variable
             return False
         # get latest metrics
@@ -134,7 +37,6 @@ class TradingEngine:
             else:
                 return False
         return False
-
         
 
     def check_if_sell_signal(self, position, current_price):

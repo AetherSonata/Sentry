@@ -4,7 +4,8 @@ from utils.os_utils import load_historical_data_from_file, save_historical_data_
 import random
 
 #global variables for data collection
-ADRESSES_TO_FETCH = [ "CniPCE4b3s8gSUPhUiyMjXnytrEqUrMfSsnbBjLCpump",
+ADRESSES_TO_FETCH = [ 
+    #                   "CniPCE4b3s8gSUPhUiyMjXnytrEqUrMfSsnbBjLCpump",
                     #   "FWAr6oWa6CHg6WUcXu8CqkmsdbhtEqL8t31QTonppump",
                     #   "FtUEW73K6vEYHfbkfpdBZfWpxgQar2HipGdbutEhpump",
                     #   "EF3Ln1DkUB5azvqcaCJgG3RR2qSUJEXxLo1q4ZHzpump",
@@ -16,7 +17,7 @@ ADRESSES_TO_FETCH = [ "CniPCE4b3s8gSUPhUiyMjXnytrEqUrMfSsnbBjLCpump",
                     #   "9YnfbEaXPaPmoXnKZFmNH8hzcLyjbRf56MQP7oqGpump",
                     #   "2yFiCwdLiUfxq9PcNXQvu16QdgBFniCJP8P8gEXNpump",
                     #   "H4phNbsqjV5rqk8u6FUACTLB6rNZRTAPGnBb8KXJpump",
-                    #   "9eXC6W3ZKnkNnCr9iENExRLJDYfPGLbc4m6qfJzJpump",
+                      "9eXC6W3ZKnkNnCr9iENExRLJDYfPGLbc4m6qfJzJpump",
                     #   "2TUQ21D87yrbZM1F3RB93sbkiGXeTTfkb8wWqG2ipump",
                     #   "9pViBf84zD4ncn8Mj8rtdtojnRkxBpibPEjbaGW6pump",
                     ]                   
@@ -58,13 +59,15 @@ if __name__ == "__main__":
     #initialize data collector with simulated historical data for each token (historical + 1 live data point)
     #initialize starting metrics for the token
     starting_index = random.randint(10, 150)
-    tradingEngine = TradingEngine(REFRESH_INTERVAL, historical_data["data"]["items"][: starting_index])  
-    tradingEngine.initialize_prior_metrics()
+    print(f"Starting index: {starting_index}")  
+    print(f"Starting data point: {historical_data['data']['items'][starting_index]}")
+    tradingEngine = TradingEngine(REFRESH_INTERVAL, historical_data["data"]["items"][: starting_index])    
 
     #SIMULATION ENVIRONMENT: iterate through historical data in a loop, starting one interval after the starting index, mocking real-time data feed
     for i in range( starting_index, len(historical_data["data"]["items"])):
-        tradingEngine.add_new_price_point_and_collect_metrics(historical_data["data"]["items"][i])
-        print(tradingEngine.metrics[-1]) #print the metrics for the current data point
+        print(f"Processing data point {i}")
+        tradingEngine.add_new_price_point(historical_data["data"]["items"][i]) # Simulate real-time data feed
+        print(tradingEngine.metrics[-1]) 
         
 
  

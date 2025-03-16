@@ -19,20 +19,20 @@ class PriceAnalytics:
         i = len(self.price_data) - 1
         if i < num_candles or i >= len(self.price_data):
             return 0.0
-        current_price = self.price_data[-1]
-        past_price = self.price_data[i - num_candles]
+        current_price = self.price_data[-1]["value"]
+        past_price = self.price_data[i - num_candles]["value"]
         return ((current_price - past_price) / past_price) * 100 if past_price != 0 else 0.0
 
     def calculate_volatility(self, i, window):
         """Calculate standard deviation (volatility) over a window."""
         if i < window or len(self.price_data) < window:
             return 0.0
-        window_data = [entry for entry in self.price_data[i-window:i]]
+        window_data = [entry["value"] for entry in self.price_data[i-window:i]]
         return np.std(window_data)
 
     def calculate_pseudo_atr(self, i, window):
         """Calculate average true range approximation."""
         if i < window or len(self.price_data) < window:
             return 0.0
-        window_data = [entry for entry in self.price_data[i-window:i]]
+        window_data = [entry["value"] for entry in self.price_data[i-window:i]]
         return np.mean(np.abs(np.diff(window_data)))

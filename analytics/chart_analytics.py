@@ -116,8 +116,9 @@ class ChartAnalyzer:
         return zones_with_strength[:max_zones]
     
 
-    def calculate_peak_distance(price_data):
+    def calculate_peak_distance(self):
         """Calculates percentage distance from the all-time peak price."""
+        price_data = self.price_data
         if not price_data:
             return 0.0
         prices = [entry["value"] for entry in price_data]
@@ -126,7 +127,8 @@ class ChartAnalyzer:
         return ((current_price - peak_price) / peak_price) * 100 if peak_price != 0 else 0.0
 
 
-    def calculate_drawdown(price_data, lookback_short=48, lookback_long=288):
+    def calculate_drawdown(self, lookback_short=48, lookback_long=288):
+        price_data = self.price_data
         """Calculates percentage drawdown from peak prices over short and long lookbacks."""
         if not price_data or len(price_data) < 2:
             return {"short": 0.0, "long": 0.0}

@@ -1,7 +1,4 @@
-
-import datetime
-from pytz import timezone
-
+from datetime import datetime, timezone
 
 def get_interval_in_minutes(interval):
     """Converts time interval (like 1m, 5m, 1H, 1D) to minutes."""
