@@ -25,9 +25,8 @@ class PricePlotter:
 
         # Initialize the plot
         self.fig, self.ax = plt.subplots(figsize=(12, 6))
-
-        # Store trend text for later updating
-        self.trend_text = None
+        plt.ion()  # Turn on interactive mode for live updates
+        self.trend_text = None  # Store trend text for updating
 
     def add_price_point(self, new_price_data, action=None, short_term_trends=None, mid_term_trends=None, support_zones=None, resistance_zones=None):
         """Add a new price point without updating the plot immediately."""
@@ -46,18 +45,18 @@ class PricePlotter:
         # Plot initial historical data in blue
         self.ax.plot(times, prices, marker='o', linestyle='-', color="blue", alpha=0.5, label="Historical Data")
 
-        # Overlay new points in their respective colors
-        for data, action, short_term_trends, mid_term_trends, supportzones, resistancezones in self.new_data:
+        # Overlay new points and annotations
+        for data, action, short_term_trends, mid_term_trends, support_zones, resistance_zones in self.new_data:
             time = datetime.utcfromtimestamp(data["unixTime"])
             price = data["value"]
 
-            # Draw vertical lines for 'BOUGHT' and 'SOLD' actions without labels
+            # Draw vertical lines for actions
             if action == "BOUGHT" or action == "ADDED":
                 self.ax.axvline(x=time, color=BOUGHT_COLOR, linewidth=BOUGHT_LINE_WIDTH, alpha=0.3)
             elif action == "SOLD":
-                self.ax.axvline(x=time, color=SOLD_COLOR, linewidth=SOLD_LINE_WIDTH , alpha=0.3)
+                self.ax.axvline(x=time, color=SOLD_COLOR, linewidth=SOLD_LINE_WIDTH, alpha=0.3)
 
-            # Draw trend indicators if needed
+            # Draw trend indicators
             if short_term_trends == "bullish":
                 self.ax.scatter(time, price - SHORT_TERM_TREND_OFFSET * price, color="green", s=50, alpha=SHORT_TERM_ALPHA)
             elif short_term_trends == "bearish":
@@ -68,38 +67,47 @@ class PricePlotter:
             elif mid_term_trends == "bearish":
                 self.ax.scatter(time, price - MID_TERM_TREND_OFFSET * price, color="red", s=50, alpha=MID_TERM_ALPHA)
 
-            # Plot support and resistance zones if they exist
-            if supportzones:
-                for label, support_price in supportzones:
-                    self.ax.axhline(y=support_price, color='purple', linestyle='--', alpha=0.7, label=f"{label} Support")
-                    self.ax.text(times[-1], support_price, f" {label}", color='purple', fontsize=10, verticalalignment='center')
+            # Plot support zones
+            if support_zones:
+                for zone in support_zones:
+                    level = zone["zone_level"]
+                    strength = zone["strength"]
+                    alpha = min(0.2 + 0.8 * strength, 1.0)  # Scale alpha with strength
+                    self.ax.axhline(y=level, color='green', linestyle='--', alpha=alpha)
+                    self.ax.text(times[-1], level, f"S:{strength:.1f}", color='green', fontsize=8, va='center')
 
-            if resistancezones:
-                for label, resistance_price in resistancezones:
-                    self.ax.axhline(y=resistance_price, color='purple', linestyle='--', alpha=0.7, label=f"{label} Resistance")
-                    self.ax.text(times[-1], resistance_price, f" {label}", color='purple', fontsize=10, verticalalignment='center')
+            # Plot resistance zones
+            if resistance_zones:
+                for zone in resistance_zones:
+                    level = zone["zone_level"]
+                    strength = zone["strength"]
+                    alpha = min(0.2 + 0.8 * strength, 1.0)  # Scale alpha with strength
+                    self.ax.axhline(y=level, color='red', linestyle='--', alpha=alpha)
+                    self.ax.text(times[-1], level, f"R:{strength:.1f}", color='red', fontsize=8, va='center')
 
-        # Update the trend text in the upper-right corner
-        if trends:
-            if self.trend_text:
-                self.trend_text.set_text(f"Trend: {trends}")
-            else:
-                # Initialize trend text if it doesn't exist
-                self.trend_text = self.ax.text(0.95, 0.95, f"Trend: {trends}",
-                                                transform=self.ax.transAxes, fontsize=12, color="black", ha="right", va="top")
+        # Update trend text (optional, based on latest trends)
+        latest_short = self.new_data[-1][2] if self.new_data else None
+        latest_mid = self.new_data[-1][3] if self.new_data else None
+        trend_str = f"Short: {latest_short or 'N/A'}, Mid: {latest_mid or 'N/A'}"
+        if self.trend_text:
+            self.trend_text.set_text(trend_str)
+        else:
+            self.trend_text = self.ax.text(0.95, 0.95, trend_str, transform=self.ax.transAxes, fontsize=12, color="black", ha="right", va="top")
 
         # Format the plot
         self.ax.set_xlabel("Time (UTC)")
         self.ax.set_ylabel("Price")
-        self.ax.set_title(f"Price Action Over Time ({self.interval} Interval)")
+        self.ax.set_title(f"Live Price Action ({self.interval} Interval)")
         self.ax.tick_params(axis='x', rotation=45)
         self.ax.xaxis.set_major_locator(mdates.AutoDateLocator())
         self.ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M\n%d-%b"))
         self.ax.grid()
         self.ax.legend()
 
-        # Pause to update the plot live
-        plt.pause(0.1)
+        # Update the plot live
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
+        plt.pause(0.01)  # Small pause for smooth updates
 
     def plot_static(self):
         """Generates a static price action plot with correctly colored points."""

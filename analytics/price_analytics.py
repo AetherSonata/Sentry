@@ -1,7 +1,7 @@
 
 import numpy as np
 class PriceAnalytics:
-    def __init__(self, initial_price_data=None, max_window=288):
+    def __init__(self, initial_price_data=[], max_window=288):
         self.max_window = max_window
         # Start with last max_window entries if initial data exceeds it
         self.price_data = initial_price_data[-max_window:] if initial_price_data and len(initial_price_data) > max_window else initial_price_data or []

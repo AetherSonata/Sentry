@@ -55,6 +55,12 @@ class IndicatorAnalyzer:
         step = self.available_intervals[interval] // self.available_intervals[self.min_interval]
         prices = list(self.price_data)[-period * step::step]
 
+        # if interval == "5m":
+        #     print(f"interval: {interval}")
+        #     print(f"step: {step}")
+        #     print(f"prices: {prices}")
+            
+
         if len(prices) < period:
             return None
 
@@ -173,11 +179,18 @@ class IndicatorAnalyzer:
                 orig_idx = n - (n_valid - i)
                 crossovers[orig_idx] = 0  # Bearish crossover
 
-        return crossovers
-    
+            return crossovers
     def analyze_rsi_divergence(self, past_metrics, latest_rsi, rsi_key=["rsi", "short"], price_key="price"):
+        # Default return structure
+        default_result = {
+            "divergence_signal": None,
+            "divergence_strength": None,
+            "source": "rsi"
+        }
+
+        # Early return if past_metrics is invalid
         if not past_metrics or len(past_metrics) < 2:
-            return None
+            return default_result
 
         # Extract price and RSI data with nested keys
         prices = [metric[price_key] for metric in past_metrics]
@@ -188,9 +201,13 @@ class IndicatorAnalyzer:
         latest_price = self.price_data[-1]["value"] if self.price_data else prices[-1]
         prices.append(latest_price)
 
-        # Convert to numpy arrays
+        # Convert to numpy arrays, handle None case explicitly
         price_array = np.array(prices)
-        rsi_array = np.array(rsi_values)
+        rsi_array = np.array(rsi_values) if latest_rsi is not None and all(v is not None for v in rsi_values) else None
+
+        # If rsi_array is None, return default dict with None values
+        if rsi_array is None:
+            return default_result
 
         # Find peaks and troughs
         price_highs_idx, _ = find_peaks(price_array, distance=2)
@@ -200,7 +217,7 @@ class IndicatorAnalyzer:
 
         # Check if we have enough points for divergence
         if len(price_highs_idx) < 2 or len(price_lows_idx) < 2 or len(rsi_highs_idx) < 2 or len(rsi_lows_idx) < 2:
-            return None
+            return default_result
 
         # Helper function for strength
         def calc_strength(price1, price2, rsi1, rsi2):
@@ -240,11 +257,11 @@ class IndicatorAnalyzer:
                 if rsi_high2 > 70:  # Overbought boost
                     divergence_strength = min(1.0, divergence_strength * 1.5)
 
-        if divergence_signal is None:
-            return None
-
-        return {
+        # Update result dictionary
+        result = {
             "divergence_signal": divergence_signal,
             "divergence_strength": divergence_strength,
-            "source": "rsi"  # Single RSI source for now
+            "source": "rsi"
         }
+
+        return result

@@ -9,9 +9,9 @@ class MetricCollector:
         self.interval_in_minutes = get_interval_in_minutes(interval)
         self.price_data = historical_price_data  # List of dicts: [{"value": price, "unixTime": ts}, ...]
 
-        self.indicator_analyzer = IndicatorAnalyzer(interval, price_data=self.price_data)
-        self.chart_analyzer = ChartAnalyzer(interval, price_data=self.price_data)
-        self.price_analyzer = PriceAnalytics(historical_price_data)
+        self.indicator_analyzer = IndicatorAnalyzer(interval)
+        self.chart_analyzer = ChartAnalyzer(interval)
+        self.price_analyzer = PriceAnalytics()
 
         self.zones = []  # Support and resistance zones
 
@@ -38,6 +38,7 @@ class MetricCollector:
     def collect_all_metrics_for_current_point(self, i):
         current_price = self.price_data[-1]["value"]
         zones = self.chart_analyzer.find_support_resistance_zones(i)
+
         self.zones.append(zones)
 
         support_zones_raw = [zone for zone in zones["support_zones"] if zone["zone_level"] < current_price]
@@ -73,6 +74,8 @@ class MetricCollector:
       
 
         rsi_short = self.indicator_analyzer.calculate_rsi("5m", 15)
+        # print(f"price: {current_price}")  # Print the value of current_price
+        # print(f"rsi_short: {rsi_short}")  # Print the value of rsi_short)
         rsi_middle_short = self.indicator_analyzer.calculate_rsi("15m", 15)
         rsi_long = self.indicator_analyzer.calculate_rsi("1h", 15)
         rsi_slope = self.indicator_analyzer.calculate_indicator_slopes("RSI", "5m", 6) # in class IndicatorAnalyzer
