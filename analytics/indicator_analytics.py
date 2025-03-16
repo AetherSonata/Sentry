@@ -1,4 +1,6 @@
 import pandas as pd
+import numpy as np
+from scipy.signal import find_peaks
 
 
 class IndicatorAnalyzer:
@@ -128,6 +130,8 @@ class IndicatorAnalyzer:
                 - 0 (bearish crossover)
                 - None (no crossover)
         """
+        print(short_ema_list)
+        print(long_ema_list)
         # Combine the input lists with the current values
         short_emas = short_ema_list + [current_short]
         long_emas = long_ema_list + [current_long]
@@ -156,92 +160,76 @@ class IndicatorAnalyzer:
 
         return crossovers
     
-    def calculate_rsi_divergence(self, rsi_type, n, interval, min_interval=5, rsi_overbought=70, rsi_oversold=30):
-        """
-        Detects RSI divergence (bullish or bearish) and evaluates the strength of the divergence, with an option for time interval-based analysis.
-
-        Args:
-            rsi_type (str): The key for the RSI type (e.g., "5-point-rsi").
-            n (int): Number of candles to look back.
-            interval (int): The time interval in minutes for which we want to calculate divergence (e.g., 15, 30).
-            min_interval (int): The smallest time step in minutes (default is 5).
-            rsi_overbought (float): RSI level considered overbought (default 70).
-            rsi_oversold (float): RSI level considered oversold (default 30).
-
-        Returns:
-            dict: Contains:
-                - "divergence_signal": 1 for bullish, 0 for bearish.
-                - "divergence_strength": A value between 0 and 1 representing the strength of the divergence.
-        """
-
-        # Calculate the number of steps to take based on the interval and min_interval
-        steps_to_take = interval // min_interval
-
-        # Ensure we have enough data
-        if len(self.price_data) < n or len(self.metrics[rsi_type]) < n:
+    def analyze_rsi_divergence(self, past_metrics, latest_rsi, rsi_key=["rsi", "short"], price_key="price"):
+        if not past_metrics or len(past_metrics) < 2:
             return None
 
-        # Look at the last `n` data points for divergence detection
-        price_segment = self.mock_real_time_price_data[-n:]
-        rsi_segment = self.metrics[rsi_type][-n:]
+        # Extract price and RSI data with nested keys
+        prices = [metric[price_key] for metric in past_metrics]
+        rsi_values = [metric[rsi_key[0]][rsi_key[1]] for metric in past_metrics]  # e.g., metric["rsi"]["short"]
 
-        # Initialize the divergence signal and strength
+        # Append latest values
+        rsi_values.append(latest_rsi)
+        latest_price = self.price_data[-1]["value"] if self.price_data else prices[-1]
+        prices.append(latest_price)
+
+        # Convert to numpy arrays
+        price_array = np.array(prices)
+        rsi_array = np.array(rsi_values)
+
+        # Find peaks and troughs
+        price_highs_idx, _ = find_peaks(price_array, distance=2)
+        price_lows_idx, _ = find_peaks(-price_array, distance=2)
+        rsi_highs_idx, _ = find_peaks(rsi_array, distance=2)
+        rsi_lows_idx, _ = find_peaks(-rsi_array, distance=2)
+
+        # Check if we have enough points for divergence
+        if len(price_highs_idx) < 2 or len(price_lows_idx) < 2 or len(rsi_highs_idx) < 2 or len(rsi_lows_idx) < 2:
+            return None
+
+        # Helper function for strength
+        def calc_strength(price1, price2, rsi1, rsi2):
+            price_diff = abs(price1 - price2) / min(price1, price2)
+            rsi_diff = abs(rsi1 - rsi2)
+            return min(1.0, rsi_diff / (price_diff + 1e-6))  # Avoid division by zero
+
+        # Initialize results
         divergence_signal = None
-        divergence_strength = 0
+        divergence_strength = 0.0
 
-        # Look for price lows/highs and RSI lows/highs
-        price_lows, rsi_lows = [], []
-        price_highs, rsi_highs = [], []
+        # Bullish divergence: Lower price lows, higher RSI lows
+        if len(price_lows_idx) >= 2 and len(rsi_lows_idx) >= 2:
+            p_idx1, p_idx2 = price_lows_idx[-2], price_lows_idx[-1]
+            price_low1, price_low2 = price_array[p_idx1], price_array[p_idx2]
+            r_idx1 = min(rsi_lows_idx, key=lambda x: abs(x - p_idx1))
+            r_idx2 = min(rsi_lows_idx, key=lambda x: abs(x - p_idx2))
+            rsi_low1, rsi_low2 = rsi_array[r_idx1], rsi_array[r_idx2]
 
-        # Find price lows and highs, and the corresponding RSI values
-        for i in range(1, n - 1, steps_to_take):  # Adjusted to skip based on the interval
-            if price_segment[i] < price_segment[i - 1] and price_segment[i] < price_segment[i + 1]:
-                price_lows.append((i, price_segment[i]))
-                rsi_lows.append(rsi_segment[i])
-            elif price_segment[i] > price_segment[i - 1] and price_segment[i] > price_segment[i + 1]:
-                price_highs.append((i, price_segment[i]))
-                rsi_highs.append(rsi_segment[i])
+            if price_low1 > price_low2 and rsi_low1 < rsi_low2:
+                divergence_signal = 1  # Bullish
+                divergence_strength = calc_strength(price_low1, price_low2, rsi_low1, rsi_low2)
+                if rsi_low2 < 30:  # Oversold boost
+                    divergence_strength = min(1.0, divergence_strength * 1.5)
 
-        # Check for bullish divergence (price makes lower lows, RSI makes higher lows)
-        if len(price_lows) >= 2 and len(rsi_lows) >= 2:
-            for i in range(1, len(price_lows)):
-                price_low1, price_low2 = price_lows[i - 1][1], price_lows[i][1]
-                rsi_low1, rsi_low2 = rsi_lows[i - 1], rsi_lows[i]
+        # Bearish divergence: Higher price highs, lower RSI highs
+        if len(price_highs_idx) >= 2 and len(rsi_highs_idx) >= 2:
+            p_idx1, p_idx2 = price_highs_idx[-2], price_highs_idx[-1]
+            price_high1, price_high2 = price_array[p_idx1], price_array[p_idx2]
+            r_idx1 = min(rsi_highs_idx, key=lambda x: abs(x - p_idx1))
+            r_idx2 = min(rsi_highs_idx, key=lambda x: abs(x - p_idx2))
+            rsi_high1, rsi_high2 = rsi_array[r_idx1], rsi_array[r_idx2]
 
-                if price_low1 > price_low2 and rsi_low1 < rsi_low2:
-                    # Calculate divergence strength
-                    distance_price = abs(price_low1 - price_low2)
-                    distance_rsi = abs(rsi_low1 - rsi_low2)
-                    divergence_strength = max(divergence_strength, distance_rsi / distance_price)
+            if price_high1 < price_high2 and rsi_high1 > rsi_high2:
+                divergence_signal = 0  # Bearish
+                divergence_strength = calc_strength(price_high1, price_high2, rsi_high1, rsi_high2)
+                if rsi_high2 > 70:  # Overbought boost
+                    divergence_strength = min(1.0, divergence_strength * 1.5)
 
-                    if rsi_low2 < rsi_oversold:
-                        divergence_signal = 1  # Bullish divergence
-                    else:
-                        divergence_signal = 1  # Bullish divergence (weak)
-
-        # Check for bearish divergence (price makes higher highs, RSI makes lower highs)
-        if len(price_highs) >= 2 and len(rsi_highs) >= 2:
-            for i in range(1, len(price_highs)):
-                price_high1, price_high2 = price_highs[i - 1][1], price_highs[i][1]
-                rsi_high1, rsi_high2 = rsi_highs[i - 1], rsi_highs[i]
-
-                if price_high1 < price_high2 and rsi_high1 > rsi_high2:
-                    # Calculate divergence strength
-                    distance_price = abs(price_high1 - price_high2)
-                    distance_rsi = abs(rsi_high1 - rsi_high2)
-                    divergence_strength = max(divergence_strength, distance_rsi / distance_price)
-
-                    if rsi_high2 > rsi_overbought:
-                        divergence_signal = 0  # Bearish divergence
-                    else:
-                        divergence_signal = 0  # Bearish divergence (weak)
-
-        # If no divergence is detected, return None
         if divergence_signal is None:
             return None
 
-        # Normalize divergence strength to a value between 0 and 1
-        divergence_strength = min(1, max(0, divergence_strength))
-
-        return {"divergence_signal": divergence_signal, "divergence_strength": divergence_strength}
-    from datetime import datetime
+        return {
+            "divergence_signal": divergence_signal,
+            "divergence_strength": divergence_strength,
+            "source": "rsi"  # Single RSI source for now
+        }

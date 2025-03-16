@@ -71,7 +71,7 @@ if __name__ == "__main__":
     for i in range( starting_index, len(historical_data["data"]["items"])):
         # print(f"Processing data point {i}")
         tradingEngine.add_new_price_point(historical_data["data"]["items"][i]) # Simulate real-time data feed
-        print(tradingEngine.metrics[-1]) 
+        print(tradingEngine.metrics[-1])
         print(tradingEngine.metric_collector.zones[-1])
         plotter.add_price_point(historical_data["data"]["items"][i], action="HOLD", 
                                 short_term_trends=None,mid_term_trends=None, 

@@ -75,8 +75,10 @@ class MetricCollector:
         momentum_medium = self.price_analyzer.calculate_price_momentum(60, 5) #span in min / interval in min 
         momentum_long = self.price_analyzer.calculate_price_momentum(240, 5) #span in min / interval in min
         
-        pseudo_atr = (self.price_analyzer.calculate_pseudo_atr(i, 14) / current_price * 100) if current_price != 0 else 0.0 #i / window in candles
-        volatility_short = (self.price_analyzer.calculate_volatility(i, 6) / current_price * 100) if current_price != 0 else 0.0 #i / window in candles
+        data_idx = len(self.price_data) - 1  # Always use the end of price_data
+        pseudo_atr = (self.price_analyzer.calculate_pseudo_atr(data_idx, 14) / current_price * 100) if current_price != 0 else 0.0
+        volatility_short = (self.price_analyzer.calculate_volatility(data_idx, 6) / current_price * 100) if current_price != 0 else 0.0
+        print(f"Final - i: {i}, data_idx: {data_idx}, pseudo_atr: {pseudo_atr}, volatility_short: {volatility_short}")
         
         rsi_short = self.indicator_analyzer.calculate_rsi("5m", 15)
         rsi_middle_short = self.indicator_analyzer.calculate_rsi("15m", 15)
@@ -100,6 +102,21 @@ class MetricCollector:
             medium_ema_values, long_ema_values,
             ema_medium, ema_long
         )
+
+        # Use past metrics (e.g., last 5 points) and append latest rsi_short
+        lookback = 5  # 25 minutes, adjust as needed
+        past_metrics = self.metrics[-lookback:] if len(self.metrics) >= lookback else self.metrics
+        divergence = self.indicator_analyzer.analyze_rsi_divergence(
+            past_metrics=past_metrics,
+            latest_rsi=rsi_short,
+            rsi_key= ["rsi", "short"],  # Use short-term RSI
+            price_key="price"
+        )
+
+        # Prepare divergence for metrics dict
+        divergence_signal = divergence["divergence_signal"] if divergence else None
+        divergence_strength = divergence["divergence_strength"] if divergence else 0.0
+
         # Build and return metrics dict
         return {
             "price": current_price,
@@ -124,6 +141,10 @@ class MetricCollector:
                 "long": ema_long,
                 "crossover_short_medium": crossover_short_medium,
                 "crossover_medium_long": crossover_medium_long,
+            },
+            "divergence": {
+                "signal": divergence_signal,
+                "strength": divergence_strength,
             },
             "support_level_1_dist": support_zones["level_1_dist"],
             "support_level_1_strength": support_zones["level_1_strength"],
