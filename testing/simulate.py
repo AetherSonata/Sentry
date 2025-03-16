@@ -1,7 +1,9 @@
 from actions.tradingEngine import TradingEngine
 from API.API_utils import fetch_complete_test_data
+from analytics.time_utils import get_interval_in_minutes
 from utils.os_utils import load_historical_data_from_file, save_historical_data_to_file, save_metrics_to_csv
 from testing.plotter import PricePlotter
+from testing.find_points import  PointFinder
 import random
 
 #global variables for data collection
@@ -72,15 +74,20 @@ if __name__ == "__main__":
     #SIMULATION ENVIRONMENT: iterate through historical data in a loop, starting one interval after the starting index, mocking real-time data feed
     for i in range( starting_index, len(historical_data["data"]["items"])):
         tradingEngine.add_new_price_point(historical_data["data"]["items"][i]) # Simulate real-time data feed
-        # print(tradingEngine.metrics[-1]["price"])
-        # print(f"Raw input {i}: {historical_data['data']['items'][i]['unixTime']}, {historical_data['data']['items'][i]['value']}")
 
-        plotter.plot_live()
+        # plotter.plot_live()
 
-# plotter.plot_static()
+
+print(f"analyzed {(len(tradingEngine.metric_collector.metrics)*get_interval_in_minutes(REFRESH_INTERVAL)) / 60} hours of data")
+
+# finding specific buy opportunities in the data
+targets = PointFinder(tradingEngine.metric_collector.metrics).find_significant_price_increases(price_increase=1.5)
+plotter.add_backtesting_points(tradingEngine.metric_collector.metrics, targets , [])
+plotter.plot_static()
+
         
 
-    # save_metrics_to_csv(token_metrics, filename=f"{TRAINING_DATA_PATH}token_metrics_{REFRESH_INTERVAL}.csv")
+# save_metrics_to_csv(token_metrics, filename=f"{TRAINING_DATA_PATH}token_metrics_{REFRESH_INTERVAL}.csv")
 
 
 

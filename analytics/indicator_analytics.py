@@ -265,3 +265,9 @@ class IndicatorAnalyzer:
         }
 
         return result
+    
+def normalize_ema_relative_to_price(ema_value, price):
+    """Normalize EMA value relative to current price."""
+    if ema_value == 0 or ema_value is None:
+        return None  # Avoid division by zero
+    return price / ema_value

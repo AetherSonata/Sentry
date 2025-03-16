@@ -1,4 +1,4 @@
-from analytics.indicator_analytics import IndicatorAnalyzer
+from analytics.indicator_analytics import IndicatorAnalyzer, normalize_ema_relative_to_price
 from analytics.chart_analytics import ChartAnalyzer
 from analytics.price_analytics import PriceAnalytics
 from analytics.time_utils import get_interval_in_minutes, get_time_features, calculate_token_age
@@ -74,8 +74,6 @@ class MetricCollector:
       
 
         rsi_short = self.indicator_analyzer.calculate_rsi("5m", 15)
-        # print(f"price: {current_price}")  # Print the value of current_price
-        # print(f"rsi_short: {rsi_short}")  # Print the value of rsi_short)
         rsi_middle_short = self.indicator_analyzer.calculate_rsi("15m", 15)
         rsi_long = self.indicator_analyzer.calculate_rsi("1h", 15)
         rsi_slope = self.indicator_analyzer.calculate_indicator_slopes("RSI", "5m", 6) # in class IndicatorAnalyzer
@@ -83,6 +81,10 @@ class MetricCollector:
         ema_short = self.indicator_analyzer.calculate_ema("5m", 10)
         ema_medium = self.indicator_analyzer.calculate_ema("5m", 50)
         ema_long = self.indicator_analyzer.calculate_ema("5m", 100)
+
+        normalized_ema_short = normalize_ema_relative_to_price(ema_short, current_price)
+        normalized_ema_medium = normalize_ema_relative_to_price(ema_medium, current_price)
+        normalized_ema_long = normalize_ema_relative_to_price(ema_long, current_price)
 
         # Extract EMA histories from MetricCollectoss self.metrics
         short_ema_values = [m["ema"]["short"] for m in self.metrics if "ema" in m and "short" in m["ema"]][-5:]
@@ -130,9 +132,9 @@ class MetricCollector:
                 "slope": rsi_slope,
             },
             "ema": {
-                "short": ema_short,
-                "medium": ema_medium,
-                "long": ema_long,
+                "short": normalized_ema_short,
+                "medium": normalized_ema_medium,
+                "long": normalized_ema_long,
                 "crossover_short_medium": crossover_short_medium,
                 "crossover_medium_long": crossover_medium_long,
             },
