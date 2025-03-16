@@ -21,7 +21,6 @@ class TradingEngine:
         self.metrics = self.metric_collector.metrics
 
     def check_for_action(self, price_data):
-        self.add_new_price_point(price_data[-1])
         self.metric_collector.add_new_price_point_and_calculate_metrics(self.price_data[-1])
         
 
@@ -54,6 +53,7 @@ class TradingEngine:
 
     def add_new_price_point(self, new_price_data):
         self.price_data.append(new_price_data)
+        self.check_for_action(self.price_data)
 
     def calculate_buy_amount(self, current_price):
         available_balance = self.portfolio.holdings["USDC"]

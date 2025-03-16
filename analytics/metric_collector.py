@@ -13,8 +13,12 @@ class MetricCollector:
         self.chart_analyzer = ChartAnalyzer(interval, price_data=self.price_data)
         self.price_analyzer = PriceAnalytics(historical_price_data)
 
-        self.metrics = []
+        self.zones = []
+        self.here = []
 
+        self.zonesRolling = []
+
+        self.metrics = []
         if historical_price_data:
             self.initialize_prior_metrics()
 
@@ -25,25 +29,25 @@ class MetricCollector:
             self.indicator_analyzer.append_price(self.price_data[i])
             self.chart_analyzer.append_price_data(self.price_data[i])
             self.price_analyzer.append(self.price_data[i])
-            print(f"Processing historical data point {i}")
-            print(f"Price data: {self.price_data[i]}")
             self.metrics.append(self.collect_all_metrics_for_current_point(i))
 
     def add_new_price_point_and_calculate_metrics(self, new_price_point):
         self.price_data.append(new_price_point)
-        print("New price point added: ", new_price_point)
         self.indicator_analyzer.append_price(new_price_point)
         self.chart_analyzer.append_price_data(new_price_point)
-        self.price_analyzer.append(new_price_point["value"])
+        self.price_analyzer.append(new_price_point)
         self.metrics.append(self.collect_all_metrics_for_current_point(len(self.price_data) - 1))
 
     def collect_all_metrics_for_current_point(self, i):
-        print(f"self.price_data[-1]: {self.price_data[-1]}")  # Debug print
-        print(f"self.price_data[{i}]: {self.price_data[i]}")  # Debug print
         current_price = self.price_data[-1]["value"]
         zones = self.chart_analyzer.find_support_resistance_zones(i)
-        print(f"zones: {zones}")  # Debug print
-        
+
+        if not self.zones:
+            self.zones.append(zones)
+            self.here.append(self.price_data[-1])
+
+        self.zonesRolling.append(zones)
+
         support_zones_raw = [zone for zone in zones["support_zones"] if zone["zone_level"] < current_price]
         resistance_zones_raw = [zone for zone in zones["resistance_zones"] if zone["zone_level"] > current_price]
 
@@ -64,11 +68,7 @@ class MetricCollector:
 
         support_zones = normalize_zones(support_zones_raw)
         resistance_zones = normalize_zones(resistance_zones_raw)
-        print(self.price_data[-1])
         time_features = get_time_features(self.price_data[-1]["unixTime"])  # Corrected to use last price data point
-
-        print(f"support_zones: {support_zones}")  # Debug print
-        print(f"resistance_zones: {resistance_zones}")  # Debug print
 
         # Pre-compute dependent values
         momentum_short = self.price_analyzer.calculate_price_momentum(15, 5) #span in min / interval in min  
@@ -100,7 +100,6 @@ class MetricCollector:
             medium_ema_values, long_ema_values,
             ema_medium, ema_long
         )
-
         # Build and return metrics dict
         return {
             "price": current_price,
