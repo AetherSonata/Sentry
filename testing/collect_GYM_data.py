@@ -62,22 +62,25 @@ if __name__ == "__main__":
     #initialize data collector with simulated historical data for each token (historical + 1 live data point)
     #initialize starting metrics for the token
     starting_index = random.randint(10, 150)
-    starting_index = 600
     print(f"Starting index: {starting_index}")  
-    print(f"Starting data point: {historical_data['data']['items'][starting_index]}")
+    # print(f"Starting data point: {historical_data['data']['items'][starting_index]}")
     tradingEngine = TradingEngine(REFRESH_INTERVAL, historical_data["data"]["items"][: starting_index])   
 
     #SIMULATION ENVIRONMENT: iterate through historical data in a loop, starting one interval after the starting index, mocking real-time data feed
     for i in range( starting_index, len(historical_data["data"]["items"])):
         # print(f"Processing data point {i}")
         tradingEngine.add_new_price_point(historical_data["data"]["items"][i]) # Simulate real-time data feed
+        
+        # if tradingEngine.metric_collector.zones[-1]:
+        #     print(tradingEngine.metric_collector.zones[-1]["support_zones"])
+        #     print(tradingEngine.metric_collector.zones[-1]["resistance_zones"])
 
         plotter.add_price_point(historical_data["data"]["items"][i], action="HOLD", 
                                 short_term_trends=None,mid_term_trends=None, 
                                 support_zones=tradingEngine.metric_collector.zones[-1]["support_zones"],
                                 resistance_zones=tradingEngine.metric_collector.zones[-1]["resistance_zones"]
                                )
-print(tradingEngine.metrics[-1])
+
 plotter.plot_static()
         
 

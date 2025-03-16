@@ -13,10 +13,7 @@ class MetricCollector:
         self.chart_analyzer = ChartAnalyzer(interval, price_data=self.price_data)
         self.price_analyzer = PriceAnalytics(historical_price_data)
 
-        self.zones = []
-        self.here = []
-
-        self.zonesRolling = []
+        self.zones = []  # Support and resistance zones
 
         self.metrics = []
         if historical_price_data:
@@ -41,12 +38,7 @@ class MetricCollector:
     def collect_all_metrics_for_current_point(self, i):
         current_price = self.price_data[-1]["value"]
         zones = self.chart_analyzer.find_support_resistance_zones(i)
-
-        if not self.zones:
-            self.zones.append(zones)
-            self.here.append(self.price_data[-1])
-
-        self.zonesRolling.append(zones)
+        self.zones.append(zones)
 
         support_zones_raw = [zone for zone in zones["support_zones"] if zone["zone_level"] < current_price]
         resistance_zones_raw = [zone for zone in zones["resistance_zones"] if zone["zone_level"] > current_price]

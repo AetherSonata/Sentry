@@ -12,7 +12,7 @@ class ChartAnalyzer:
         self.support_zones = []
         self.resistance_zones = []
         self.min_update_interval = 12  # 1hr (12 candles at 5min) for young tokens
-        self.max_update_interval = 288  # 24hr (288 candles) for mature tokens
+        self.max_update_interval = 244  # 12hr (288 candles) for mature tokens
 
     def append_price_data(self, price_data):
         """Append new price data and update price_series."""

@@ -119,8 +119,8 @@ class IndicatorAnalyzer:
         Calculates EMA crossovers given lists of short and long EMA values plus current values.
 
         Args:
-            short_ema_list (list): List of recent short EMA values (any length).
-            long_ema_list (list): List of recent long EMA values (same length as short_ema_list).
+            short_ema_list (list): List of recent short EMA values (any length, may contain None).
+            long_ema_list (list): List of recent long EMA values (same length as short_ema_list, may contain None).
             current_short (float): The newest short EMA value.
             current_long (float): The newest long EMA value.
 
@@ -128,35 +128,50 @@ class IndicatorAnalyzer:
             list: A list with length equal to input list length + 1, containing:
                 - 1 (bullish crossover)
                 - 0 (bearish crossover)
-                - None (no crossover)
+                - None (no crossover or invalid data)
         """
-        # print(f"short_ema_list: {short_ema_list}, long_ema_list: {long_ema_list}, current_short: {current_short}, current_long: {current_long}")
+        # Filter out None values from input lists, keeping pairs aligned
+        valid_pairs = [(s, l) for s, l in zip(short_ema_list, long_ema_list) if s is not None and l is not None]
+        short_valid = [pair[0] for pair in valid_pairs]
+        long_valid = [pair[1] for pair in valid_pairs]
 
-        # Combine the input lists with the current values
-        short_emas = short_ema_list + [current_short]
-        long_emas = long_ema_list + [current_long]
+        # Add current values (assume they're valid floats)
+        short_emas = short_valid + [current_short]
+        long_emas = long_valid + [current_long]
 
-        # Determine the output length based on input
-        n = len(short_emas)
+        # Original input length including current values
+        n = len(short_ema_list) + 1
 
-        # If less than 2 entries, return a list of None values
-        if n < 2:
+        # If less than 2 valid entries, return None list of original length
+        if len(short_emas) < 2:
             return [None] * n
 
-        # Initialize result list with None values
+        # Adjust to minimum length of valid data
+        n_valid = min(len(short_emas), len(long_emas))
+        short_emas = short_emas[-n_valid:]
+        long_emas = long_emas[-n_valid:]
+
+        # Initialize result with None, matching original input length
         crossovers = [None] * n
 
-        # Check for crossovers over the available entries
-        for i in range(1, n):
+        # Check crossovers only on valid data
+        for i in range(1, n_valid):
             prev_short = short_emas[i - 1]
             prev_long = long_emas[i - 1]
             curr_short = short_emas[i]
             curr_long = long_emas[i]
 
+            # Ensure all values are numeric (redundant with filter, but safe)
+            if any(x is None for x in [prev_short, prev_long, curr_short, curr_long]):
+                continue
+
             if prev_short <= prev_long and curr_short > curr_long:
-                crossovers[i] = 1  # Bullish crossover
+                # Map valid index to original list position
+                orig_idx = n - (n_valid - i)
+                crossovers[orig_idx] = 1  # Bullish crossover
             elif prev_short >= prev_long and curr_short < curr_long:
-                crossovers[i] = 0  # Bearish crossover
+                orig_idx = n - (n_valid - i)
+                crossovers[orig_idx] = 0  # Bearish crossover
 
         return crossovers
     

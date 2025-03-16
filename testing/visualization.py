@@ -29,10 +29,10 @@ class PricePlotter:
         # Store trend text for later updating
         self.trend_text = None
 
-    def add_price_point(self, new_price_data, action=None, short_term_trends=None, mid_term_trends=None, support_zones=None, resistance_zones=None, here=None):
+    def add_price_point(self, new_price_data, action=None, short_term_trends=None, mid_term_trends=None, support_zones=None, resistance_zones=None):
         """Add a new price point without updating the plot immediately."""
         self.historical_data.append(new_price_data)
-        self.new_data.append((new_price_data, action, short_term_trends, mid_term_trends, support_zones, resistance_zones, here))  # Store for later plotting
+        self.new_data.append((new_price_data, action, short_term_trends, mid_term_trends, support_zones, resistance_zones))  # Store for later plotting
 
     def plot_live(self):
         """Generates a live price action plot with updated points."""
