@@ -1,14 +1,6 @@
 class PointFinder:
     def __init__(self, metrics):
-        """
-        Initializes the PriceIncreaseAnalyzer with a metrics list and calculates target indices.
-
-        Args:
-            metrics (list): List of metric dictionaries, each containing a 'price' key.
-            price_increase (float): Minimum factor by which price must increase (e.g., 2.0 for 2x).
-        """
         self.metrics = metrics
-        self.targets = self.find_significant_price_increases(price_increase=1.5)
 
     def find_significant_price_increases(self, price_increase):
         """
@@ -22,7 +14,7 @@ class PointFinder:
         Returns:
             list: List of indices in self.metrics where the condition is met.
         """
-        result = []
+        targets = []
         n = len(self.metrics)
         i = 0
 
@@ -51,7 +43,7 @@ class PointFinder:
                     break
 
             if qualifies:
-                result.append(i)
+                targets.append(i)
                 # Skip ahead to the next point after the increase to avoid overlapping sequences
                 next_i = i + 1
                 while next_i < n:
@@ -63,4 +55,11 @@ class PointFinder:
             else:
                 i += 1
 
-        return result
+        return targets
+    
+    def get_indexed_metrics(self, indexes, lower_bound=0):
+        # Filter indexes to include only those > lower_bound and within self.metrics bounds
+        valid_indexes = [idx for idx in indexes if idx > lower_bound and idx < len(self.metrics)]
+        
+        # Return corresponding metrics
+        return [self.metrics[idx] for idx in valid_indexes]

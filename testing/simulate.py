@@ -75,15 +75,19 @@ if __name__ == "__main__":
     for i in range( starting_index, len(historical_data["data"]["items"])):
         tradingEngine.add_new_price_point(historical_data["data"]["items"][i]) # Simulate real-time data feed
 
-        # plotter.plot_live()
+        plotter.plot_live()
 
 
 print(f"analyzed {(len(tradingEngine.metric_collector.metrics)*get_interval_in_minutes(REFRESH_INTERVAL)) / 60} hours of data")
 
-# finding specific buy opportunities in the data
-targets = PointFinder(tradingEngine.metric_collector.metrics).find_significant_price_increases(price_increase=1.5)
-plotter.add_backtesting_points(tradingEngine.metric_collector.metrics, targets , [])
-plotter.plot_static()
+# # finding specific buy opportunities in the data
+# pointFinder = PointFinder(tradingEngine.metric_collector.metrics)
+# targets = pointFinder.find_significant_price_increases(price_increase=1.5)
+# plotter.add_backtesting_points(tradingEngine.metric_collector.metrics, targets , [])
+# plotter.plot_static()
+
+# print(pointFinder.get_indexed_metrics(targets, lower_bound=400))
+
 
         
 

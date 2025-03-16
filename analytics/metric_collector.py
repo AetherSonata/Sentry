@@ -1,5 +1,5 @@
 from analytics.indicator_analytics import IndicatorAnalyzer, normalize_ema_relative_to_price
-from analytics.chart_analytics import ChartAnalyzer
+from analytics.chart_analytics import ChartAnalyzer, normalize_zones
 from analytics.price_analytics import PriceAnalytics
 from analytics.time_utils import get_interval_in_minutes, get_time_features, calculate_token_age
 
@@ -37,30 +37,23 @@ class MetricCollector:
 
     def collect_all_metrics_for_current_point(self, i):
         current_price = self.price_data[-1]["value"]
-        zones = self.chart_analyzer.find_support_resistance_zones(i)
+        zones = self.chart_analyzer.find_key_zones(
+            current_step=i,
+            max_zones=6,
+            volatility_window=20,
+            filter_percentage=100
+        )
 
         self.zones.append(zones)
 
-        support_zones_raw = [zone for zone in zones["support_zones"] if zone["zone_level"] < current_price]
-        resistance_zones_raw = [zone for zone in zones["resistance_zones"] if zone["zone_level"] > current_price]
+        # Split zones based on current price
+        support_zones_raw = [zone for zone in zones if zone["zone_level"] < current_price]
+        resistance_zones_raw = [zone for zone in zones if zone["zone_level"] > current_price]
 
-        def normalize_zones(zone_list, max_zones=3):
-            zone_list.sort(key=lambda x: x["strength"], reverse=True)
-            normalized = {}
-            for j in range(max_zones):
-                prefix = f"level_{j+1}"
-                if j < len(zone_list) and current_price != 0:
-                    level = zone_list[j]["zone_level"]
-                    strength = zone_list[j]["strength"]
-                    normalized[f"{prefix}_dist"] = ((level - current_price) / current_price) * 100
-                    normalized[f"{prefix}_strength"] = strength
-                else:
-                    normalized[f"{prefix}_dist"] = 0.0
-                    normalized[f"{prefix}_strength"] = 0.0
-            return normalized
+        # Normalize and filter zones 3 support and 3 resistance zones, sort them by proximity to current price
+        support_zones = normalize_zones(support_zones_raw, current_price=current_price, max_zones=3, include_major_flag=True)
+        resistance_zones = normalize_zones(resistance_zones_raw,current_price=current_price, max_zones=3, include_major_flag=True)
 
-        support_zones = normalize_zones(support_zones_raw)
-        resistance_zones = normalize_zones(resistance_zones_raw)
         time_features = get_time_features(self.price_data[-1]["unixTime"])  # Corrected to use last price data point
 
         # Pre-compute dependent values
