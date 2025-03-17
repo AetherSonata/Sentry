@@ -82,7 +82,8 @@ print(f"analyzed {(len(tradingEngine.metric_collector.metrics)*get_interval_in_m
 
 # finding specific buy opportunities in the data
 pointFinder = PointFinder(tradingEngine.metric_collector.metrics)
-targets = pointFinder.find_significant_price_increases(price_increase=1.5)
+# targets = pointFinder.find_significant_price_increases(price_increase=1.5)
+targets = pointFinder.find_fib_618_retracement_recovery(tolerance=0.05)
 plotter.add_backtesting_points(tradingEngine.metric_collector.metrics, targets , [])
 plotter.plot_static()
 

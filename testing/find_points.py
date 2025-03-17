@@ -67,20 +67,20 @@ class PointFinder:
     
     def find_fib_618_retracement_recovery(self, tolerance=0.05):
         """
-        Find indices where price pumps to an ATH, retraces to ~61.8% (± tolerance), and recovers above ATH.
+        Find the first index after a pump's ATH where price hits ~61.8% (± tolerance),
+        then only increases until exceeding the ATH.
 
         Args:
             tolerance (float): Percentage tolerance around 61.8% (e.g., 0.05 for ±5%).
 
         Returns:
-            list: List of lists, where each sublist contains indices of the retracement zone
-                  (from ATH to just before recovery above ATH).
+            list: List of indices, each the first retracement point before a monotonic rise past ATH.
         """
-        retracement_zones = []
+        retracement_indices = []
         n = len(self.metrics)
         i = 0
 
-        while i < n - 2:  # Need at least 3 points to check pump, retrace, recover
+        while i < n - 2:  # Need at least 3 points for pump, retrace, recover
             start_price = self.metrics[i]["price"]
             if start_price <= 0:  # Skip invalid prices
                 i += 1
@@ -110,47 +110,40 @@ class PointFinder:
             lower_bound = fib_618_level * (1 - tolerance)
             upper_bound = fib_618_level * (1 + tolerance)
 
-            # Look for retracement to ~61.8% level
-            retrace_start = ath_idx
-            retrace_end = None
-            min_price = ath_price
-            min_idx = ath_idx
-
+            # Look for the first retracement point hitting ~61.8%
+            retrace_idx = None
             for k in range(ath_idx + 1, n):
                 current_price = self.metrics[k]["price"]
-                if current_price < min_price:
-                    min_price = current_price
-                    min_idx = k
-
-                # Check if price enters the 61.8% retracement zone
                 if lower_bound <= current_price <= upper_bound:
-                    retrace_end = k
+                    retrace_idx = k
                     break
-                # If price drops below start or rises above ATH, stop looking for retracement
+                # If price drops below start or rises above ATH before retracing, skip
                 if current_price < start_price or current_price > ath_price:
                     break
 
-            # If no retracement found within tolerance, move past the ATH
-            if retrace_end is None:
+            if retrace_idx is None:
                 i = ath_idx + 1
                 continue
 
-            # Look for recovery above ATH
-            recovery_idx = None
-            for m in range(retrace_end + 1, n):
-                if self.metrics[m]["price"] > ath_price:
-                    recovery_idx = m
-                    break
-                # If price drops below start before recovering, invalid pattern
-                if self.metrics[m]["price"] < start_price:
-                    break
+            # Check if price only increases from retrace_idx and hits ATH
+            valid_recovery = True
+            last_price = self.metrics[retrace_idx]["price"]
+            reached_ath = False
 
-            # If recovery found, store the retracement zone indices
-            if recovery_idx is not None:
-                retracement_zone = list(range(ath_idx, recovery_idx))
-                retracement_zones.append(retracement_zone)
-                i = recovery_idx + 1  # Skip past the recovery point
+            for m in range(retrace_idx + 1, n):
+                current_price = self.metrics[m]["price"]
+                if current_price < last_price:  # Price dipped, invalid
+                    valid_recovery = False
+                    break
+                if current_price >= ath_price:  # Reached or exceeded ATH
+                    reached_ath = True
+                    break
+                last_price = current_price
+
+            if valid_recovery and reached_ath:
+                retracement_indices.append(retrace_idx)
+                i = m + 1  # Skip past the recovery point
             else:
-                i = ath_idx + 1  # Move past the ATH if no recovery
+                i = ath_idx + 1  # Move past the ATH if no valid recovery
 
-        return retracement_zones
+        return retracement_indices
