@@ -2,6 +2,7 @@ from analytics.indicator_analytics import IndicatorAnalyzer, normalize_ema_relat
 from analytics.chart_analytics import ChartAnalyzer, normalize_zones
 from analytics.price_analytics import PriceAnalytics
 from analytics.time_utils import get_interval_in_minutes, get_time_features, calculate_token_age
+from analytics.fibonacci_analyzer import FibonacciAnalyzer
 
 class MetricCollector:
     def __init__(self, interval, historical_price_data):
@@ -12,6 +13,7 @@ class MetricCollector:
         self.indicator_analyzer = IndicatorAnalyzer(interval)
         self.chart_analyzer = ChartAnalyzer(interval)
         self.price_analyzer = PriceAnalytics()
+        self.fibonacci_analyzer = FibonacciAnalyzer(interval)
 
         self.zones = []  # Support and resistance zones
 
@@ -26,6 +28,7 @@ class MetricCollector:
             self.indicator_analyzer.append_price(self.price_data[i])
             self.chart_analyzer.append_price_data(self.price_data[i])
             self.price_analyzer.append(self.price_data[i])
+            self.fibonacci_analyzer.append_price_data(self.price_data[i])
             self.metrics.append(self.collect_all_metrics_for_current_point(i))
 
     def add_new_price_point_and_calculate_metrics(self, new_price_point):
@@ -54,6 +57,10 @@ class MetricCollector:
         support_zones = normalize_zones(support_zones_raw, current_price=current_price, max_zones=3, include_major_flag=True)
         resistance_zones = normalize_zones(resistance_zones_raw,current_price=current_price, max_zones=3, include_major_flag=True)
 
+        # check fibonacci levels
+        fib_match_step = self.fibonacci_analyzer.check_fibonacci_time_update()
+
+
         time_features = get_time_features(self.price_data[-1]["unixTime"])  # Corrected to use last price data point
 
         # Pre-compute dependent values
@@ -64,7 +71,6 @@ class MetricCollector:
         data_idx = len(self.price_data) - 1  # Always use the end of price_data
         pseudo_atr = (self.price_analyzer.calculate_pseudo_atr(data_idx, 14) / current_price * 100) if current_price != 0 else 0.0
         volatility_short = (self.price_analyzer.calculate_volatility(data_idx, 6) / current_price * 100) if current_price != 0 else 0.0
-      
 
         rsi_short = self.indicator_analyzer.calculate_rsi("5m", 15)
         rsi_middle_short = self.indicator_analyzer.calculate_rsi("15m", 15)
@@ -74,10 +80,12 @@ class MetricCollector:
         ema_short = self.indicator_analyzer.calculate_ema("5m", 10)
         ema_medium = self.indicator_analyzer.calculate_ema("5m", 50)
         ema_long = self.indicator_analyzer.calculate_ema("5m", 100)
+        ema_longterm = self.indicator_analyzer.calculate_ema("5m", 200)
 
         normalized_ema_short = normalize_ema_relative_to_price(ema_short, current_price)
         normalized_ema_medium = normalize_ema_relative_to_price(ema_medium, current_price)
         normalized_ema_long = normalize_ema_relative_to_price(ema_long, current_price)
+        normalized_ema_longterm = normalize_ema_relative_to_price(ema_longterm, current_price)
 
         # Extract EMA histories from MetricCollectoss self.metrics
         short_ema_values = [m["ema"]["short"] for m in self.metrics if "ema" in m and "short" in m["ema"]][-5:]
@@ -128,6 +136,7 @@ class MetricCollector:
                 "short": normalized_ema_short,
                 "medium": normalized_ema_medium,
                 "long": normalized_ema_long,
+                "longterm": normalized_ema_longterm,
                 "crossover_short_medium": crossover_short_medium,
                 "crossover_medium_long": crossover_medium_long,
             },
@@ -155,6 +164,7 @@ class MetricCollector:
             "time": {
                 "minute_of_day": time_features["minute_of_day"],
                 "day_of_week": time_features["day_of_week"],
+            "fibonacci_time_reversal": fib_match_step           
             }
         }
 

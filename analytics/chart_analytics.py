@@ -202,3 +202,5 @@ def normalize_zones(zone_list, current_price, max_zones=3, include_major_flag=Fa
             if include_major_flag:
                 normalized[f"{prefix}_is_major"] = False
     return normalized
+
+    

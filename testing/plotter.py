@@ -135,10 +135,12 @@ class PricePlotter:
         ema_short = [m['ema']['short'] for m in metrics]
         ema_medium = [m['ema']['medium'] for m in metrics]
         ema_long = [m['ema']['long'] for m in metrics]
+        ema_longterm = [m['ema']['longterm'] for m in metrics]
         
         self.ax_ema.plot(time, ema_short, '-', color='blue', label='EMA Short')
         self.ax_ema.plot(time, ema_medium, '-', color='orange', label='EMA Medium')
         self.ax_ema.plot(time, ema_long, '-', color='purple', label='EMA Long')
+        self.ax_ema.plot(time, ema_longterm, '-', color='green', label='EMA Long-term')
 
     def _plot_backtesting(self, time):
         """Plot backtesting points in the slim subplot"""
