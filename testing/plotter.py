@@ -88,6 +88,7 @@ class PricePlotter:
         self.ax_ema.clear()
         if self.backtest_metrics is not None:
             self.ax_backtest.clear()
+    
 
     def _plot_price(self, time, metrics):
         """Plot price data with support/resistance zones"""

@@ -86,7 +86,7 @@ targets = pointFinder.find_significant_price_increases(price_increase=1.5)
 plotter.add_backtesting_points(tradingEngine.metric_collector.metrics, targets , [])
 plotter.plot_static()
 
-print(pointFinder.get_indexed_metrics(targets, lower_bound=400))
+# print(pointFinder.get_indexed_metrics(targets, lower_bound=400))
 
 
         

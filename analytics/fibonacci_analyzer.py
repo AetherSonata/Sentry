@@ -57,3 +57,6 @@ class FibonacciAnalyzer:
         # Filter out indices beyond current data length
         prices = len(self.price_data)
         self.fib_time_indices = [idx for idx in self.fib_time_indices if idx < prices]
+
+    def calculate_fibonacci_retest(self):
+        pass
