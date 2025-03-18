@@ -3,6 +3,7 @@ from analytics.chart_analytics import ChartAnalyzer, normalize_zones
 from analytics.price_analytics import PriceAnalytics
 from analytics.time_utils import get_interval_in_minutes, get_time_features, calculate_token_age
 from analytics.fibonacci_analyzer import FibonacciAnalyzer
+from interpretation.confidence import ConfidenceCalculator
 
 class MetricCollector:
     def __init__(self, interval, historical_price_data):
@@ -14,8 +15,12 @@ class MetricCollector:
         self.chart_analyzer = ChartAnalyzer(interval)
         self.price_analyzer = PriceAnalytics()
         self.fibonacci_analyzer = FibonacciAnalyzer(interval)
+        self.confidence_calculator = ConfidenceCalculator(self, alpha=0.01, threshold=0.05)
 
-        self.zones = []  # Support and resistance zones
+        self.zones = [
+            {"zone_level": 0, "strength": 0, "is_major": False}, 
+            {"zone_level": 0, "strength": 0, "is_major": False} # Default zone for testing
+        ]
 
         self.metrics = []
         if historical_price_data:
@@ -47,7 +52,7 @@ class MetricCollector:
             filter_percentage=100
         )
 
-        self.zones.append(zones)
+        self.zones.extend(zones)
 
         # Split zones based on current price
         support_zones_raw = [zone for zone in zones if zone["zone_level"] < current_price]
@@ -161,10 +166,10 @@ class MetricCollector:
             "drawdown_tight": self.chart_analyzer.calculate_drawdown(3, 288)["short"],
             "drawdown_short": self.chart_analyzer.calculate_drawdown(12, 288)["short"],
             "drawdown_long": self.chart_analyzer.calculate_drawdown(12, 288)["long"],
+            "zone_confidence": self.confidence_calculator.calculate_zone_confidence(current_price),        
             "time": {
                 "minute_of_day": time_features["minute_of_day"],
                 "day_of_week": time_features["day_of_week"],
-            "fibonacci_time_reversal": fib_match_step           
             }
         }
 

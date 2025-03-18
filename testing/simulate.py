@@ -9,6 +9,7 @@ import random
 #global variables for data collection
 ADRESSES_TO_FETCH = [ 
     #                   "CniPCE4b3s8gSUPhUiyMjXnytrEqUrMfSsnbBjLCpump",
+                      "AQiE2ghyFbBsbsfHiTEbKWcCLTDgyGzceKEPWftZpump"
                     #   "FWAr6oWa6CHg6WUcXu8CqkmsdbhtEqL8t31QTonppump",
                     #   "FtUEW73K6vEYHfbkfpdBZfWpxgQar2HipGdbutEhpump",
                     #   "EF3Ln1DkUB5azvqcaCJgG3RR2qSUJEXxLo1q4ZHzpump",
@@ -20,7 +21,7 @@ ADRESSES_TO_FETCH = [
                     #   "9YnfbEaXPaPmoXnKZFmNH8hzcLyjbRf56MQP7oqGpump",
                     #   "2yFiCwdLiUfxq9PcNXQvu16QdgBFniCJP8P8gEXNpump",
                     #   "H4phNbsqjV5rqk8u6FUACTLB6rNZRTAPGnBb8KXJpump",
-                      "9eXC6W3ZKnkNnCr9iENExRLJDYfPGLbc4m6qfJzJpump",
+                    #   "9eXC6W3ZKnkNnCr9iENExRLJDYfPGLbc4m6qfJzJpump",
                     #   "2TUQ21D87yrbZM1F3RB93sbkiGXeTTfkb8wWqG2ipump",
                     #   "9pViBf84zD4ncn8Mj8rtdtojnRkxBpibPEjbaGW6pump",
                     ]                   
@@ -75,17 +76,16 @@ if __name__ == "__main__":
     for i in range( starting_index, len(historical_data["data"]["items"])):
         tradingEngine.add_new_price_point(historical_data["data"]["items"][i]) # Simulate real-time data feed
 
-        # plotter.plot_live()
+        plotter.plot_live()
 
 
 print(f"analyzed {(len(tradingEngine.metric_collector.metrics)*get_interval_in_minutes(REFRESH_INTERVAL)) / 60} hours of data")
 
 # finding specific buy opportunities in the data
-pointFinder = PointFinder(tradingEngine.metric_collector.metrics)
+# pointFinder = PointFinder(tradingEngine.metric_collector.metrics)
 # targets = pointFinder.find_significant_price_increases(price_increase=1.5)
-targets = pointFinder.find_fib_618_retracement_recovery(tolerance=0.05)
-plotter.add_backtesting_points(tradingEngine.metric_collector.metrics, targets , [])
-plotter.plot_static()
+# plotter.add_backtesting_points(targets , [])
+# plotter.plot_static()
 
 # print(pointFinder.get_indexed_metrics(targets, lower_bound=400))
 

@@ -7,31 +7,30 @@ class PricePlotter:
         self.trading_engine = trading_engine
         self.initial_data_size = len(trading_engine.metrics)
         
-        # Initialize figure with four subplots (backtesting subplot added)
+        # Initialize figure with four subplots
         plt.ion()
-        self.fig = plt.figure(figsize=(12, 9))  # Increased height slightly to fit new subplot
+        self.fig = plt.figure(figsize=(12, 12))  # Increased height for extra subplot
         
         # Main price plot (larger)
-        self.ax_price = self.fig.add_subplot(411)  # 4 rows, 1 column, position 1
-        # RSI subplot (smaller)
+        self.ax_price = self.fig.add_subplot(411)
+        # RSI subplot
         self.ax_rsi = self.fig.add_subplot(412, sharex=self.ax_price)
-        # EMA subplot (smaller)
-        self.ax_ema = self.fig.add_subplot(413, sharex=self.ax_price)
-        # Backtesting subplot (very slim, initially hidden)
-        self.ax_backtest = self.fig.add_subplot(414, sharex=self.ax_price)
-        self.ax_backtest.set_visible(False)  # Hidden until data is added
+        # Zone confidence subplot (will be moved to bottom)
+        self.ax_confidence = self.fig.add_subplot(413, sharex=self.ax_price)
+        # EMA subplot
+        self.ax_ema = self.fig.add_subplot(414, sharex=self.ax_price)
         
-        # Adjust subplot sizes
-        self.fig.subplots_adjust(hspace=0.5)
-        self.ax_price.set_position([0.1, 0.55, 0.8, 0.4])  # [left, bottom, width, height]
-        self.ax_rsi.set_position([0.1, 0.35, 0.8, 0.15])
-        self.ax_ema.set_position([0.1, 0.2, 0.8, 0.15])
-        self.ax_backtest.set_position([0.1, 0.1, 0.8, 0.05])  # Very slim
+        # Adjust subplot positions
+        self.fig.subplots_adjust(hspace=0.6)
+        self.ax_price.set_position([0.1, 0.65, 0.8, 0.3])    # Top: Price, height 0.3 (unchanged)
+        self.ax_rsi.set_position([0.1, 0.45, 0.8, 0.15])     # Second: RSI, height 0.15 (unchanged)
+        self.ax_ema.set_position([0.1, 0.25, 0.8, 0.15])     # Third: EMA, height 0.15 (moved up)
+        self.ax_confidence.set_position([0.1, 0.05, 0.8, 0.1])  # Bottom: Confidence, slimmer height 0.1
         
-        # Backtesting data
-        self.backtest_metrics = None
+        # Backtesting indices
         self.targets_index = None
         self.similars_index = None
+        self.plot_backtest = False
 
     def plot_live(self):
         """Plot price action and indicators in real-time"""
@@ -39,8 +38,9 @@ class PricePlotter:
         metrics = self.trading_engine.metrics
         time = list(range(len(metrics)))
         
-        self._plot_price(time, metrics)
+        self._plot_price(time, metrics, include_backtest=False)
         self._plot_rsi(time, metrics)
+        self._plot_zone_confidence(time, metrics)
         self._plot_ema(time, metrics)
         
         self._customize_plots('Live Solana Token Price Action')
@@ -57,79 +57,111 @@ class PricePlotter:
         time = list(range(start_position, end_position))
         metrics = metrics[start_position:end_position]
         
-        self._plot_price(time, metrics)
+        include_backtest = self.plot_backtest and (self.targets_index is not None or self.similars_index is not None)
+        self._plot_price(time, metrics, include_backtest=include_backtest)
         self._plot_rsi(time, metrics)
+        self._plot_zone_confidence(time, metrics)
         self._plot_ema(time, metrics)
-        
-        # Plot backtesting subplot if data exists
-        if self.backtest_metrics is not None:
-            self.ax_backtest.set_visible(True)
-            self._plot_backtesting(time)
         
         self._customize_plots('Complete Solana Token Price Action')
         plt.show()
 
-    def add_backtesting_points(self, metrics, targets_index, similars_index):
-        """Add backtesting data to be plotted in the static subplot.
-
-        Args:
-            metrics (list): List of metric dictionaries to plot.
-            targets_index (list): List of indices for green target points.
-            similars_index (list): List of indices for purple similar points.
-        """
-        self.backtest_metrics = metrics
-        self.targets_index = targets_index
-        self.similars_index = similars_index
+    def add_backtesting_points(self, targets_index, similars_index):
+        """Store backtesting indices that match self.trading_engine.metrics and enable plotting."""
+        max_idx = len(self.trading_engine.metrics) - 1
+        self.targets_index = [i for i in targets_index if 0 <= i <= max_idx]
+        self.similars_index = [i for i in similars_index if 0 <= i <= max_idx]
+        self.plot_backtest = True
 
     def _clear_axes(self):
         """Clear all axes for fresh plotting"""
         self.ax_price.clear()
         self.ax_rsi.clear()
+        self.ax_confidence.clear()
         self.ax_ema.clear()
-        if self.backtest_metrics is not None:
-            self.ax_backtest.clear()
-    
 
-    def _plot_price(self, time, metrics):
-        """Plot price data with support/resistance zones"""
+    def _plot_price(self, time, metrics, include_backtest=False):
+        """Plot price data with support/resistance zones and optional backtesting points"""
         prices = [m['price'] for m in metrics]
         
-        # Initial data in grey
         if self.initial_data_size > 0:
             end_initial = min(self.initial_data_size, len(metrics))
             self.ax_price.plot(
-                time[:end_initial],
-                prices[:end_initial],
-                'o-',
-                color='grey',
-                label='Initial Data'
+                time[:end_initial], prices[:end_initial], 'o-', color='grey',
+                label='Initial Data', zorder=1
             )
         
-        # Live data in blue
         if len(metrics) > self.initial_data_size:
             start_live = max(0, self.initial_data_size - (len(self.trading_engine.metrics) - len(metrics)))
             self.ax_price.plot(
-                time[start_live:],
-                prices[start_live:],
-                'o-',
-                color='blue',
-                label='Live Data'
+                time[start_live:], prices[start_live:], 'o-', color='blue',
+                label='Live Data', zorder=1
             )
         
         self._plot_zones(metrics[-1])
+        
+        if include_backtest:
+            if self.targets_index:
+                target_times = [time[i] for i in self.targets_index if i < len(time)]
+                target_prices = [prices[i] for i in self.targets_index if i < len(time)]
+                self.ax_price.scatter(
+                    target_times, target_prices, color='green', alpha=0.8, label='Targets', s=50, zorder=3
+                )
+            if self.similars_index:
+                similar_times = [time[i] for i in self.similars_index if i < len(time)]
+                similar_prices = [prices[i] for i in self.similars_index if i < len(time)]
+                self.ax_price.scatter(
+                    similar_times, similar_prices, color='purple', alpha=0.8, label='Similars', s=50, zorder=3
+                )
 
     def _plot_rsi(self, time, metrics):
-        """Plot RSI values"""
+        """Plot RSI values and RSI slope"""
         rsi_short = [m['rsi']['short'] for m in metrics]
         rsi_mid = [m['rsi']['middle_short'] for m in metrics]
         rsi_long = [m['rsi']['long'] for m in metrics]
+        rsi_slope = [m['rsi']['slope'] for m in metrics]
         
         self.ax_rsi.plot(time, rsi_short, '-', color='blue', label='RSI Short')
         self.ax_rsi.plot(time, rsi_mid, '-', color='orange', label='RSI Mid-Short')
         self.ax_rsi.plot(time, rsi_long, '-', color='purple', label='RSI Long')
+        self.ax_rsi.plot(time, rsi_slope, '-', color='black', alpha=0.3, label='RSI Slope')
         
         self.ax_rsi.axhline(y=70, color='r', linestyle='--', alpha=0.3)
         self.ax_rsi.axhline(y=30, color='g', linestyle='--', alpha=0.3)
+
+    def _plot_zone_confidence(self, time, metrics):
+        """Plot zone_confidence values with fill between 0 and the line"""
+        confidences = [m['zone_confidence'] for m in metrics]
+        
+        # Plot yellow line for zone_confidence with increased visibility
+        self.ax_confidence.plot(
+            time, confidences, '-', color='yellow', label='Zone Confidence', 
+            linewidth=2, zorder=2
+        )
+        
+        # Fill areas: green above 0, red below 0
+        zero_line = np.zeros(len(time))  # Zero baseline
+        self.ax_confidence.fill_between(
+            time, zero_line, confidences, where=(np.array(confidences) >= 0),
+            facecolor='green', alpha=0.3, interpolate=True, zorder=1
+        )
+        self.ax_confidence.fill_between(
+            time, zero_line, confidences, where=(np.array(confidences) < 0),
+            facecolor='red', alpha=0.3, interpolate=True, zorder=1
+        )
+        
+        # Add horizontal line at 0
+        self.ax_confidence.axhline(y=0, color='black', linestyle='--', alpha=0.3)
+        
+        # Display the current confidence value in real-time
+        if len(confidences) > 0:
+            current_confidence = confidences[-1]
+            self.ax_confidence.text(
+                0.95, 0.95, f'Confidence: {current_confidence:.2f}',
+                transform=self.ax_confidence.transAxes,
+                ha='right', va='top', fontsize=10, color='white',
+                bbox=dict(facecolor='black', alpha=0.5)
+            )
 
     def _plot_ema(self, time, metrics):
         """Plot EMA values"""
@@ -143,69 +175,46 @@ class PricePlotter:
         self.ax_ema.plot(time, ema_long, '-', color='purple', label='EMA Long')
         self.ax_ema.plot(time, ema_longterm, '-', color='green', label='EMA Long-term')
 
-    def _plot_backtesting(self, time):
-        """Plot backtesting points in the slim subplot"""
-        prices = [m['price'] for m in self.backtest_metrics]
-        
-        # Plot all points in grey with low alpha
-        self.ax_backtest.scatter(time, prices, color='grey', alpha=0.1, label='All Points', s=20)
-        
-        # Plot target points in green
-        if self.targets_index:
-            target_times = [time[i] for i in self.targets_index if i < len(time)]
-            target_prices = [prices[i] for i in self.targets_index if i < len(time)]
-            self.ax_backtest.scatter(target_times, target_prices, color='green', alpha=0.8, label='Targets', s=30)
-        
-        # Plot similar points in purple
-        if self.similars_index:
-            similar_times = [time[i] for i in self.similars_index if i < len(time)]
-            similar_prices = [prices[i] for i in self.similars_index if i < len(time)]
-            self.ax_backtest.scatter(similar_times, similar_prices, color='purple', alpha=0.8, label='Similars', s=30)
-        
-        self.ax_backtest.set_ylabel('Backtest')
-        self.ax_backtest.legend()
-        self.ax_backtest.grid(True, linestyle='--', alpha=0.7)
-
     def _plot_zones(self, metric):
         """Plot support and resistance zones"""
         current_price = metric['price']
         
         for i in range(1, 4):
-            # Support levels
-            dist = metric[f'support_level_{i}_dist']
-            strength = metric[f'support_level_{i}_strength']
+            dist = metric.get(f'support_level_{i}_dist', 0)
+            strength = metric.get(f'support_level_{i}_strength', 0)
             if strength > 0:
                 level = current_price + (dist / 100) * current_price
                 self.ax_price.axhline(
-                    y=level, color='green', linestyle='--', 
-                    alpha=strength * 0.8, label=f'Support {i}' if i == 1 else None
+                    y=level, color='green', linestyle='--', alpha=strength * 0.8,
+                    label=f'Support {i}' if i == 1 else None
                 )
             
-            # Resistance levels
-            dist = metric[f'resistance_level_{i}_dist']
-            strength = metric[f'resistance_level_{i}_strength']
+            dist = metric.get(f'resistance_level_{i}_dist', 0)
+            strength = metric.get(f'resistance_level_{i}_strength', 0)
             if strength > 0:
                 level = current_price + (dist / 100) * current_price
                 self.ax_price.axhline(
-                    y=level, color='red', linestyle='--', 
-                    alpha=strength * 0.8, label=f'Resistance {i}' if i == 1 else None
+                    y=level, color='red', linestyle='--', alpha=strength * 0.8,
+                    label=f'Resistance {i}' if i == 1 else None
                 )
 
     def _customize_plots(self, title):
         """Apply common styling to all plots"""
-        # Price plot
         self.ax_price.set_ylabel('Price')
         self.ax_price.set_title(title)
         self.ax_price.legend()
         self.ax_price.grid(True, linestyle='--', alpha=0.7)
         
-        # RSI plot
         self.ax_rsi.set_ylabel('RSI')
         self.ax_rsi.legend()
         self.ax_rsi.grid(True, linestyle='--', alpha=0.7)
         self.ax_rsi.set_ylim(0, 100)
         
-        # EMA plot
+        self.ax_confidence.set_ylabel('Confidence')
+        self.ax_confidence.legend()
+        self.ax_confidence.grid(True, linestyle='--', alpha=0.7)
+        # self.ax_confidence.set_ylim(-1, 1)  # Fixed range for confidence
+        
         self.ax_ema.set_xlabel('Time (index)')
         self.ax_ema.set_ylabel('EMA')
         self.ax_ema.legend()
