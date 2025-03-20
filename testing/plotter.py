@@ -133,27 +133,44 @@ class PricePlotter:
 
     def _plot_zone_confidence(self, time, metrics):
         """Plot zone_confidence values with fill between 0 and the line"""
-        confidences = [m['zone_confidence'] for m in metrics]
+        # Safely extract confidences, defaulting to None if key is missing
+        confidences = [m.get('zone_confidence') if isinstance(m, dict) else None for m in metrics]
+        
+        # Check if there are any valid confidence values
+        valid_confidences = [c for c in confidences if c is not None]
+        
+        if not valid_confidences:
+            # If no valid confidences, skip plotting or set a default behavior
+            self.ax_confidence.text(
+                0.5, 0.5, 'No Zone Confidence Data Available',
+                transform=self.ax_confidence.transAxes,
+                ha='center', va='center', fontsize=10, color='gray'
+            )
+            self.ax_confidence.set_ylabel('Confidence')
+            return  # Exit early
+        
+        # Convert None to 0 for plotting (or leave as None and filter later if preferred)
+        plot_confidences = [c if c is not None else 0 for c in confidences]
         
         self.ax_confidence.plot(
-            time, confidences, '-', color='yellow', label='Zone Confidence', 
+            time, plot_confidences, '-', color='yellow', label='Zone Confidence', 
             linewidth=2, zorder=2
         )
         
         zero_line = np.zeros(len(time))
         self.ax_confidence.fill_between(
-            time, zero_line, confidences, where=(np.array(confidences) >= 0),
+            time, zero_line, plot_confidences, where=(np.array(plot_confidences) >= 0),
             facecolor='green', alpha=0.3, interpolate=True, zorder=1
         )
         self.ax_confidence.fill_between(
-            time, zero_line, confidences, where=(np.array(confidences) < 0),
+            time, zero_line, plot_confidences, where=(np.array(plot_confidences) < 0),
             facecolor='red', alpha=0.3, interpolate=True, zorder=1
         )
         
         self.ax_confidence.axhline(y=0, color='black', linestyle='--', alpha=0.3)
         
-        if len(confidences) > 0:
-            current_confidence = confidences[-1]
+        if valid_confidences:  # Only add text if there’s at least one valid value
+            current_confidence = valid_confidences[-1]
             self.ax_confidence.text(
                 0.95, 0.95, f'Confidence: {current_confidence:.2f}',
                 transform=self.ax_confidence.transAxes,
@@ -174,61 +191,40 @@ class PricePlotter:
         self.ax_ema.plot(time, ema_longterm, '-', color='green', label='EMA Long-term')
 
     def _plot_zones(self, metric):
-        """Plot support, resistance, and major zones from metrics"""
+        """Plot support and resistance zones from metrics"""
+        # Get the current price (though not needed here since levels are pre-calculated)
         current_price = metric['price']
         
-        # Plot regular support and resistance zones (existing logic, dashed lines)
-        for i in range(1, 4):
-            dist = metric.get(f'support_level_{i}_dist', 0)
-            strength = metric.get(f'support_level_{i}_strength', 0)
-            if strength > 0:
-                level = current_price + (dist / 100) * current_price
-                self.ax_price.axhline(
-                    y=level, 
-                    color='green', 
-                    linestyle='--',  # Dashed line
-                    alpha=strength * 0.8,
-                    label=f'Support {i}' if i == 1 else None
-                )
-            
-            dist = metric.get(f'resistance_level_{i}_dist', 0)
-            strength = metric.get(f'resistance_level_{i}_strength', 0)
-            if strength > 0:
-                level = current_price + (dist / 100) * current_price
-                self.ax_price.axhline(
-                    y=level, 
-                    color='red', 
-                    linestyle='--',  # Dashed line
-                    alpha=strength * 0.8,
-                    label=f'Resistance {i}' if i == 1 else None
-                )
-
-        # Plot major support zone (continuous green line)
-        major_support_dist = metric.get('major_support_level_1_dist', 0)
-        major_support_strength = metric.get('major_support_level_1_strength', 0)
-        # print(major_support_dist, major_support_strength)
-        if major_support_strength > 0:
-            major_support_level = current_price + (major_support_dist / 100) * current_price
+        # Get support and resistance zones from the metric
+        support_zones = self.trading_engine.metric_collector.support_zones[-1] if self.trading_engine.metric_collector.support_zones else []
+        resistance_zones = self.trading_engine.metric_collector.resistance_zones[-1] if self.trading_engine.metric_collector.resistance_zones else []
+        print(support_zones)
+        print(resistance_zones)
+        
+        # Plot support zones as green dashed lines
+        for i, zone in enumerate(support_zones):
+            level = support_zones['level']
+            strength = support_zones['strength']  # Default to 1 if strength is not present
+            label = 'Support Zones' if i == 0 else None  # Label only the first support zone
             self.ax_price.axhline(
-                y=major_support_level,
-                color='green',
-                linestyle='-',  # Continuous line
-                alpha=major_support_strength * 0.8,
-                label='Major Support'
+                y=level, 
+                color='green', 
+                linestyle='--',  # Dashed line
+                # alpha=strength * 0.8,  # Adjust transparency based on strength
+                label=label
             )
-
-        # Plot major resistance zone (continuous red line)
-        major_resistance_dist = metric.get('major_resistance_level_1_dist', 0)
-        major_resistance_strength = metric.get('major_resistance_level_1_strength', 0)
-        # print(major_resistance_dist, major_resistance_strength)
-        if major_resistance_strength > 0:
-            major_resistance_level = current_price + (major_resistance_dist / 100) * current_price
+        
+        # Plot resistance zones as red dashed lines
+        for i, zone in enumerate(resistance_zones):
+            level = resistance_zones['level']
+            strength = resistance_zones.get('strength', 1)  # Default to 1 if strength is not present
+            label = 'Resistance Zones' if i == 0 else None  # Label only the first resistance zone
             self.ax_price.axhline(
-                y=major_resistance_level,
-                color='red',
-                linestyle='-',  # Continuous line
-                alpha=major_resistance_strength * 0.8,
-                label='Major Resistance'
+                y=level, 
+                color='red', 
+                linestyle='--',  # Dashed line
+                # alpha=strength * 0.8,  # Adjust transparency based on strength
+                label=label
             )
 
     def plot_all_zones(self):

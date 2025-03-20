@@ -8,9 +8,9 @@ import random
 
 #global variables for data collection
 ADRESSES_TO_FETCH = [ 
-                      "CniPCE4b3s8gSUPhUiyMjXnytrEqUrMfSsnbBjLCpump",
+                    #   "CniPCE4b3s8gSUPhUiyMjXnytrEqUrMfSsnbBjLCpump",
                     #   "AQiE2ghyFbBsbsfHiTEbKWcCLTDgyGzceKEPWftZpump"
-                    #   "FWAr6oWa6CHg6WUcXu8CqkmsdbhtEqL8t31QTonppump",
+                      "FWAr6oWa6CHg6WUcXu8CqkmsdbhtEqL8t31QTonppump",
                     #   "FtUEW73K6vEYHfbkfpdBZfWpxgQar2HipGdbutEhpump",
                     #   "EF3Ln1DkUB5azvqcaCJgG3RR2qSUJEXxLo1q4ZHzpump",
                     #   "GYTd9XbZTfwicCV28LGkwiDF4DgpXTTAi2UeCajfpump",

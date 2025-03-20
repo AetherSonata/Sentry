@@ -4,6 +4,7 @@ from analytics.price_analytics import PriceAnalytics
 from analytics.time_utils import get_interval_in_minutes, get_time_features, calculate_token_age
 from analytics.fibonacci_analyzer import FibonacciAnalyzer
 from interpretation.confidence import ConfidenceCalculator
+from analytics.zones import ZoneAnalyzer
 
 class MetricCollector:
     def __init__(self, interval):
@@ -16,67 +17,83 @@ class MetricCollector:
         self.price_analyzer = PriceAnalytics()
         self.fibonacci_analyzer = FibonacciAnalyzer(interval)
         self.confidence_calculator = ConfidenceCalculator(self, self.chart_analyzer, alpha=0.08, threshold=0.1, decay_rate=0.05)
+        self.zone_analyzer = ZoneAnalyzer(self)
 
         self.support_zones = []
         self.resistance_zones = []
-
         self.metrics = []
 
-        # if len(historical_price_data) > 0:
-        #     self.initialize_prior_metrics()
-
-
-    def initialize_prior_metrics(self):
-        # Process all historical data without appending—already in self.price_data
-        for i in range(len(self.price_data)):
-            self.indicator_analyzer.append_price(self.price_data[i])
-            self.chart_analyzer.append_price_data(self.price_data[i])
-            self.price_analyzer.append(self.price_data[i])
-            self.fibonacci_analyzer.append_price_data(self.price_data[i])
-            self.metrics.append(self.collect_all_metrics_for_current_point(i))
+        self.zones=[]
 
     def add_new_price_point_and_calculate_metrics(self, new_price_point):
         self.price_data.append(new_price_point)
         self.indicator_analyzer.append_price(new_price_point)
         self.chart_analyzer.append_price_data(new_price_point)
         self.price_analyzer.append(new_price_point)
+        
         self.metrics.append(self.collect_all_metrics_for_current_point(len(self.price_data) - 1))
+        
 
     def collect_all_metrics_for_current_point(self, i):
         current_price = self.price_data[-1]["value"]
-        zones = self.chart_analyzer.find_key_zones(
+        
+        self.support_zones, self.resistance_zones = self.zone_analyzer.get_zones()
+
+        self.zones = (self.chart_analyzer.find_key_zones(
             current_step=i,
             max_zones=50,  # Large number to get all relevant zones; filtering happens below
             volatility_window=20,
             filter_percentage_minor=75.0,  # Tight window for minor zones
             filter_percentage_major=150.0,  # Wide window for major zones
             decay_period=70     # 8 hours
-        )
+        ))
         
-        # Split zones based on current price and type
-        support_zones_raw = [zone for zone in zones if zone["zone_level"] < current_price]
-        resistance_zones_raw = [zone for zone in zones if zone["zone_level"] > current_price]
-        major_support_zones_raw = [zone for zone in support_zones_raw if zone["is_major"]]
-        major_resistance_zones_raw = [zone for zone in resistance_zones_raw if zone["is_major"]]
 
-        # Scoring function combining strength and proximity
-        def score_zone(zone, current_price):
-            distance_pct = abs(zone["zone_level"] - current_price) / current_price
-            return zone["strength"] / (1 + distance_pct)
+        # print(f"Support zones: {self.support_zones}")
+        # print(f"Resistance zones: {self.resistance_zones}")
+
+
+
+
+
+
+
+
+
+
+        # zones = self.chart_analyzer.find_key_zones(
+        #     current_step=i,
+        #     max_zones=50,  # Large number to get all relevant zones; filtering happens below
+        #     volatility_window=20,
+        #     filter_percentage_minor=75.0,  # Tight window for minor zones
+        #     filter_percentage_major=150.0,  # Wide window for major zones
+        #     decay_period=70     # 8 hours
+        # )
         
-        # Select top 3 support and resistance zones (all types) by score
-        self.support_zones = sorted(support_zones_raw, key=lambda x: score_zone(x, current_price), reverse=True)[:3]
-        self.resistance_zones = sorted(resistance_zones_raw, key=lambda x: score_zone(x, current_price), reverse=True)[:3]
+        # # Split zones based on current price and type
+        # support_zones_raw = [zone for zone in zones if zone["zone_level"] < current_price]
+        # resistance_zones_raw = [zone for zone in zones if zone["zone_level"] > current_price]
+        # major_support_zones_raw = [zone for zone in support_zones_raw if zone["is_major"]]
+        # major_resistance_zones_raw = [zone for zone in resistance_zones_raw if zone["is_major"]]
 
-        # Select top 1 major support and resistance zones (for simplicity, can increase if needed)
-        major_support_zones = sorted(major_support_zones_raw, key=lambda x: score_zone(x, current_price), reverse=True)[:1]
-        major_resistance_zones = sorted(major_resistance_zones_raw, key=lambda x: score_zone(x, current_price), reverse=True)[:1]
+        # # Scoring function combining strength and proximity
+        # def score_zone(zone, current_price):
+        #     distance_pct = abs(zone["zone_level"] - current_price) / current_price
+        #     return zone["strength"] / (1 + distance_pct)
+        
+        # # Select top 3 support and resistance zones (all types) by score
+        # self.support_zones = sorted(support_zones_raw, key=lambda x: score_zone(x, current_price), reverse=True)[:3]
+        # self.resistance_zones = sorted(resistance_zones_raw, key=lambda x: score_zone(x, current_price), reverse=True)[:3]
 
-        # Normalize all sets
-        support_zones_normalized = normalize_zones(self.support_zones, current_price=current_price, max_zones=3, include_major_flag=True)
-        resistance_zones_normalized = normalize_zones(self.resistance_zones, current_price=current_price, max_zones=3, include_major_flag=True)
-        major_support_zones_normalized = normalize_zones(major_support_zones, current_price=current_price, max_zones=1, include_major_flag=True)
-        major_resistance_zones_normalized = normalize_zones(major_resistance_zones, current_price=current_price, max_zones=1, include_major_flag=True)
+        # # Select top 1 major support and resistance zones (for simplicity, can increase if needed)
+        # major_support_zones = sorted(major_support_zones_raw, key=lambda x: score_zone(x, current_price), reverse=True)[:1]
+        # major_resistance_zones = sorted(major_resistance_zones_raw, key=lambda x: score_zone(x, current_price), reverse=True)[:1]
+
+        # # Normalize all sets
+        # support_zones_normalized = normalize_zones(self.support_zones, current_price=current_price, max_zones=3, include_major_flag=True)
+        # resistance_zones_normalized = normalize_zones(self.resistance_zones, current_price=current_price, max_zones=3, include_major_flag=True)
+        # major_support_zones_normalized = normalize_zones(major_support_zones, current_price=current_price, max_zones=1, include_major_flag=True)
+        # major_resistance_zones_normalized = normalize_zones(major_resistance_zones, current_price=current_price, max_zones=1, include_major_flag=True)
         
         time_features = get_time_features(self.price_data[-1]["unixTime"])  # Corrected to use last price data point
 
@@ -166,29 +183,29 @@ class MetricCollector:
                 "signal": divergence_signal,
                 "strength": divergence_strength,
             },
-            "support_level_1_dist": support_zones_normalized["level_1_dist"],
-            "support_level_1_strength": support_zones_normalized["level_1_strength"],
-            "support_level_2_dist": support_zones_normalized["level_2_dist"],
-            "support_level_2_strength": support_zones_normalized["level_2_strength"],
-            "support_level_3_dist": support_zones_normalized["level_3_dist"],
-            "support_level_3_strength": support_zones_normalized["level_3_strength"],
-            "major_support_level_1_dist": major_support_zones_normalized["level_1_dist"],
-            "major_support_level_1_strength": major_support_zones_normalized["level_1_strength"],
-            "resistance_level_1_dist": resistance_zones_normalized["level_1_dist"],
-            "resistance_level_1_strength": resistance_zones_normalized["level_1_strength"],
-            "resistance_level_2_dist": resistance_zones_normalized["level_2_dist"],
-            "resistance_level_2_strength": resistance_zones_normalized["level_2_strength"],
-            "resistance_level_3_dist": resistance_zones_normalized["level_3_dist"],
-            "resistance_level_3_strength": resistance_zones_normalized["level_3_strength"],
-            "major_resistance_level_1_dist": major_resistance_zones_normalized["level_1_dist"],
-            "major_resistance_level_1_strength": major_resistance_zones_normalized["level_1_strength"],
+            # "support_level_1_dist": support_zones_normalized["level_1_dist"],
+            # "support_level_1_strength": support_zones_normalized["level_1_strength"],
+            # "support_level_2_dist": support_zones_normalized["level_2_dist"],
+            # "support_level_2_strength": support_zones_normalized["level_2_strength"],
+            # "support_level_3_dist": support_zones_normalized["level_3_dist"],
+            # "support_level_3_strength": support_zones_normalized["level_3_strength"],
+            # "major_support_level_1_dist": major_support_zones_normalized["level_1_dist"],
+            # "major_support_level_1_strength": major_support_zones_normalized["level_1_strength"],
+            # "resistance_level_1_dist": resistance_zones_normalized["level_1_dist"],
+            # "resistance_level_1_strength": resistance_zones_normalized["level_1_strength"],
+            # "resistance_level_2_dist": resistance_zones_normalized["level_2_dist"],
+            # "resistance_level_2_strength": resistance_zones_normalized["level_2_strength"],
+            # "resistance_level_3_dist": resistance_zones_normalized["level_3_dist"],
+            # "resistance_level_3_strength": resistance_zones_normalized["level_3_strength"],
+            # "major_resistance_level_1_dist": major_resistance_zones_normalized["level_1_dist"],
+            # "major_resistance_level_1_strength": major_resistance_zones_normalized["level_1_strength"],
             "token_age": calculate_token_age(self.price_data) / 1440,
             "peak_distance": self.chart_analyzer.calculate_peak_distance(),
             "drawdown_tight": self.chart_analyzer.calculate_drawdown(3, 288)["short"],
             "drawdown_short": self.chart_analyzer.calculate_drawdown(12, 288)["short"],
             "drawdown_long": self.chart_analyzer.calculate_drawdown(12, 288)["long"],
-            "zone_confidence": zone_confidence, 
-            "zone_confidence_slope": zone_confidence_slope,      
+            # "zone_confidence": zone_confidence, 
+            # "zone_confidence_slope": zone_confidence_slope,      
             "time": {
                 "minute_of_day": time_features["minute_of_day"],
                 "day_of_week": time_features["day_of_week"],
