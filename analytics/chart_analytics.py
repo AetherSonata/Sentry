@@ -1,144 +1,123 @@
 import numpy as np
 import pandas as pd
 from scipy import signal as sp
-
+from collections import deque
 
 class ChartAnalyzer:
     def __init__(self, interval, price_data=[]):
-        self.interval = interval  # e.g., '5m'
+        self.interval = interval
         self.price_data = price_data
         self.prices = [entry['value'] for entry in price_data]
         self.price_series = pd.Series(self.prices)
         self.last_update = -1
-        self.zones = []  # Unified list of zones
-        self.min_update_interval = 12  # 1hr
-        self.max_update_interval = 144  # 12hr (adjusted for shitcoins)
+        self.zones = deque(maxlen=50)  # Persistent: {"level": float, "touches": int, "last_touched": int, "is_major": bool}
+        self.min_update_interval = 12
+        self.max_update_interval = 144
 
     def append_price_data(self, price_data):
-        """Append new price data and update price_series."""
         self.prices.append(price_data['value'])
         self.price_data.append(price_data)
         self.price_series = pd.Series(self.prices)
 
-    def find_key_zones(self, current_step, max_zones=6, volatility_window=20, filter_percentage=50.0):
-        """
-        Identify key price zones (major and minor) dynamically based on price action.
-
-        Args:
-            current_step (int): Current simulation step.
-            max_zones (int): Max number of zones to return (e.g., 3 major + 3 minor).
-            volatility_window (int): Window to calculate volatility for dynamic parameters.
-            filter_percentage (float): Max percentage distance from current price to include zones (e.g., 50.0 for ±50%).
-
-        Returns:
-            list: Sorted list of {"zone_level": float, "strength": float, "is_major": bool}.
-        """
+    def find_key_zones(self, current_step, max_zones=6, volatility_window=20, filter_percentage_minor=50.0, filter_percentage_major=200.0, min_strength=0.3, decay_period=144):
         available_candles = len(self.price_series)
-        if available_candles < 12:  # Need at least 1hr of data
+        if available_candles < 12:
             return [{"zone_level": 0.0, "strength": 0.0, "is_major": False}] * max_zones
 
-        # Dynamic update interval based on token age and volatility
+        current_price = self.price_series.iloc[-1]
         volatility = self.price_series[-volatility_window:].pct_change().std() * 100 if available_candles >= volatility_window else 1.0
-        update_interval = min(self.max_update_interval, max(self.min_update_interval, int(volatility * 12)))  # Scale with volatility
 
-        if (self.last_update == -1 or current_step - self.last_update >= update_interval):
-            # Lookback: Use up to 2x max interval or all data
-            lookback = min(available_candles, self.max_update_interval * 2)
-            price_window = self.price_series[-lookback:]
+        # Adjust peak detection parameters based on token age
+        age_factor = min(available_candles / 1728, 1.0)  # Scale up to 9 days (1728 intervals at 5m)
 
-            # Dynamic parameters based on volatility
-            peak_distance = max(5, int(volatility * 5))  # Min 5 candles, scales with volatility
-            cluster_threshold = max(0.01, volatility / 100)  # 1% min, scales with volatility
+        # Update minor zones every interval
+        lookback_minor = min(available_candles, int(volatility * 12))
+        price_window_minor = self.price_series[-lookback_minor:]
+        peak_distance_minor = max(10, int(volatility * 10 * (1 + age_factor)))  # Stricter spacing
+        self._update_zones(price_window_minor, peak_distance_minor, current_step, is_major=False, prominence_factor=1.0)
 
-            # Calculate zones
-            zones = self._calculate_zones(price_window, peak_distance=peak_distance)
-            self.zones = self._cluster_and_rank_zones(zones, cluster_threshold=cluster_threshold, current_price=price_window.iloc[-1])
+        # Update major zones periodically (every 12 hours)
+        if current_step % 144 == 0 or self.last_update == -1:
+            lookback_major = min(available_candles, 576)  # 48 hours
+            price_window_major = self.price_series[-lookback_major:]
+            peak_distance_major = max(20, int(volatility * 20 * (1 + age_factor)))  # Even stricter
+            self._update_zones(price_window_major, peak_distance_major, current_step, is_major=True, prominence_factor=2.0)
+            price_range = max(self.price_series) - min(self.price_series) if self.price_series.any() else 1
+            self._cluster_persistent_zones(cluster_threshold=0.01 * price_range)  # Tighter clustering
             self.last_update = current_step
 
-        # Filter and sort zones relative to current price
-        current_price = self.price_series.iloc[-1]
-        filter_factor = filter_percentage / 100.0  # Convert percentage to decimal (e.g., 50.0 -> 0.5)
-        relevant_zones = [z for z in self.zones if abs(z["zone_level"] - current_price) / current_price <= filter_factor]
-        relevant_zones.sort(key=lambda x: x["zone_level"])
+        # Decay untouched zones (every 12 hours, more aggressive)
+        decay_period = decay_period  # 12 hours
+        for zone in self.zones:
+            if current_step - zone["last_touched"] > decay_period:
+                decay_amount = 2 if not zone["is_major"] else 1  # Faster decay for minor zones
+                zone["touches"] = max(1, zone["touches"] - decay_amount)
 
-        # Select top major and minor zones
-        major_zones = sorted([z for z in relevant_zones if z["is_major"]], key=lambda x: x["strength"], reverse=True)[:3]
-        minor_zones = sorted([z for z in relevant_zones if not z["is_major"]], key=lambda x: x["strength"], reverse=True)[:3]
-        final_zones = major_zones + minor_zones
+        # Filter zones by type and distance
+        minor_zones = [z for z in self.zones if not z["is_major"] and abs(z["level"] - current_price) / current_price <= filter_percentage_minor / 100]
+        major_zones = [z for z in self.zones if z["is_major"] and abs(z["level"] - current_price) / current_price <= filter_percentage_major / 100]
+        all_zones = minor_zones + major_zones
 
-        # Pad to max_zones if needed
-        final_zones += [{"zone_level": 0.0, "strength": 0.0, "is_major": False}] * (max_zones - len(final_zones))
-        return final_zones[:max_zones]
+        # Rank zones and apply minimum strength threshold
+        zones_with_strength = self._rank_zones(all_zones, current_price)
+        filtered_zones = [z for z in zones_with_strength if z["strength"] >= min_strength]
+        return filtered_zones[:max_zones]
 
-    def _calculate_zones(self, price_window, peak_distance):
-        """Identify major and minor peaks/troughs."""
-        # Major zones (strong peaks/troughs)
-        major_distance = peak_distance * 3  # Wider spacing for major zones
-        major_peaks, _ = sp.find_peaks(price_window, distance=major_distance, prominence=price_window.std() * 0.5)
-        major_troughs, _ = sp.find_peaks(-price_window, distance=major_distance, prominence=price_window.std() * 0.5)
-        
-        # Minor zones (general peaks/troughs)
-        minor_peaks, _ = sp.find_peaks(price_window, distance=peak_distance)
-        minor_troughs, _ = sp.find_peaks(-price_window, distance=peak_distance)
+    def _update_zones(self, price_window, peak_distance, current_step, is_major, prominence_factor=1.0):
+        prominence = price_window.std() * prominence_factor if price_window.std() > 0 else 0.01
+        peaks, _ = sp.find_peaks(price_window, distance=peak_distance, prominence=prominence)
+        troughs, _ = sp.find_peaks(-price_window, distance=peak_distance, prominence=prominence)
+        new_levels = [price_window.iloc[i] for i in list(peaks) + list(troughs)]
+        threshold = price_window.iloc[-1] * 0.01  # 1% clustering
 
-        # Combine into zones with is_major flag
-        zones = [
-            {"level": price_window.iloc[p], "touches": 1, "is_major": True} for p in major_peaks
-        ] + [
-            {"level": price_window.iloc[t], "touches": 1, "is_major": True} for t in major_troughs
-        ] + [
-            {"level": price_window.iloc[p], "touches": 1, "is_major": False} for p in minor_peaks if p not in major_peaks
-        ] + [
-            {"level": price_window.iloc[t], "touches": 1, "is_major": False} for t in minor_troughs if t not in major_troughs
-        ]
+        for new_level in new_levels:
+            close_zones = [z for z in self.zones if abs(z["level"] - new_level) <= threshold]
+            if close_zones:
+                closest = min(close_zones, key=lambda z: abs(z["level"] - new_level))
+                closest["touches"] += 1
+                closest["last_touched"] = current_step
+                if is_major:
+                    closest["is_major"] = True
+            else:
+                self.zones.append({"level": new_level, "touches": 1, "last_touched": current_step, "is_major": is_major})
 
-        return zones
-
-    def _cluster_and_rank_zones(self, zones, cluster_threshold, current_price, min_touches=1, max_touches=10):
-        """Cluster zones and assign strength based on touches and proximity."""
-        if not zones:
-            return []
-
-        levels = sorted(zones, key=lambda x: x["level"])
+    def _cluster_persistent_zones(self, cluster_threshold):
+        if not self.zones:
+            return
+        levels = sorted(self.zones, key=lambda x: x["level"])
         clustered = []
         current_cluster = []
-
-        # Cluster based on relative threshold
-        price_range = max(self.price_series) - min(self.price_series) if self.price_series.any() else 1
-        threshold = cluster_threshold * price_range
-
         for zone in levels:
-            if not current_cluster or abs(current_cluster[-1]["level"] - zone["level"]) <= threshold:
+            if not current_cluster or abs(current_cluster[-1]["level"] - zone["level"]) <= cluster_threshold:
                 current_cluster.append(zone)
             else:
-                if len(current_cluster) >= min_touches:
-                    avg_level = np.mean([z["level"] for z in current_cluster])
-                    touches = sum(z["touches"] for z in current_cluster)
-                    is_major = any(z["is_major"] for z in current_cluster)
-                    clustered.append({"level": avg_level, "touches": touches, "is_major": is_major})
+                avg_level = np.mean([z["level"] for z in current_cluster])
+                total_touches = sum(z["touches"] for z in current_cluster)
+                last_touched = max(z["last_touched"] for z in current_cluster)
+                is_major = any(z["is_major"] for z in current_cluster)
+                if total_touches >= 2:  # Require at least 2 touches to keep a clustered zone
+                    clustered.append({"level": avg_level, "touches": total_touches, "last_touched": last_touched, "is_major": is_major})
                 current_cluster = [zone]
-
-        if current_cluster and len(current_cluster) >= min_touches:
+        if current_cluster:
             avg_level = np.mean([z["level"] for z in current_cluster])
-            touches = sum(z["touches"] for z in current_cluster)
+            total_touches = sum(z["touches"] for z in current_cluster)
+            last_touched = max(z["last_touched"] for z in current_cluster)
             is_major = any(z["is_major"] for z in current_cluster)
-            clustered.append({"level": avg_level, "touches": touches, "is_major": is_major})
+            if total_touches >= 2:
+                clustered.append({"level": avg_level, "touches": total_touches, "last_touched": last_touched, "is_major": is_major})
+        self.zones = clustered
 
-        # Calculate strength: combine touches and proximity to current price
-        max_touches_count = min(max([z["touches"] for z in clustered], default=1), max_touches)
+    def _rank_zones(self, zones, current_price, max_touches=10):
+        max_touches_count = min(max([z["touches"] for z in zones], default=1), max_touches)
         zones_with_strength = []
-        for zone in clustered:
+        for zone in zones:
             touch_strength = zone["touches"] / max_touches_count
-            proximity = 1 - min(abs(zone["level"] - current_price) / (current_price * 0.5), 1)  # 0-1, closer = stronger
-            strength = 0.7 * touch_strength + 0.3 * proximity  # Weighted combination
-            zones_with_strength.append({
-                "zone_level": zone["level"],
-                "strength": min(strength, 1.0),  # Cap at 1.0
-                "is_major": zone["is_major"]
-            })
-
+            proximity = 1 - min(abs(zone["level"] - current_price) / (current_price * 0.5), 1)
+            strength = 0.7 * touch_strength + 0.3 * proximity
+            zones_with_strength.append({"zone_level": zone["level"], "strength": min(strength, 1.0), "is_major": zone["is_major"]})
         return zones_with_strength
-        
+
+    # Keep calculate_peak_distance and calculate_drawdown unchanged
 
     def calculate_peak_distance(self):
         """Calculates percentage distance from the all-time peak price."""

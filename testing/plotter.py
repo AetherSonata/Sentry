@@ -15,17 +15,17 @@ class PricePlotter:
         self.ax_price = self.fig.add_subplot(411)
         # RSI subplot
         self.ax_rsi = self.fig.add_subplot(412, sharex=self.ax_price)
-        # Zone confidence subplot (will be moved to bottom)
+        # Zone confidence subplot
         self.ax_confidence = self.fig.add_subplot(413, sharex=self.ax_price)
         # EMA subplot
         self.ax_ema = self.fig.add_subplot(414, sharex=self.ax_price)
         
         # Adjust subplot positions
         self.fig.subplots_adjust(hspace=0.6)
-        self.ax_price.set_position([0.1, 0.65, 0.8, 0.3])    # Top: Price, height 0.3 (unchanged)
-        self.ax_rsi.set_position([0.1, 0.45, 0.8, 0.15])     # Second: RSI, height 0.15 (unchanged)
-        self.ax_ema.set_position([0.1, 0.25, 0.8, 0.15])     # Third: EMA, height 0.15 (moved up)
-        self.ax_confidence.set_position([0.1, 0.05, 0.8, 0.1])  # Bottom: Confidence, slimmer height 0.1
+        self.ax_price.set_position([0.1, 0.65, 0.8, 0.3])    # Top: Price, height 0.3
+        self.ax_rsi.set_position([0.1, 0.45, 0.8, 0.15])     # Second: RSI, height 0.15
+        self.ax_ema.set_position([0.1, 0.25, 0.8, 0.15])     # Third: EMA, height 0.15
+        self.ax_confidence.set_position([0.1, 0.05, 0.8, 0.1])  # Bottom: Confidence, height 0.1
         
         # Backtesting indices
         self.targets_index = None
@@ -42,6 +42,7 @@ class PricePlotter:
         self._plot_rsi(time, metrics)
         self._plot_zone_confidence(time, metrics)
         self._plot_ema(time, metrics)
+        self.plot_all_zones()  # Add all zones from metrics_collector
         
         self._customize_plots('Live Solana Token Price Action')
         plt.draw()
@@ -62,6 +63,7 @@ class PricePlotter:
         self._plot_rsi(time, metrics)
         self._plot_zone_confidence(time, metrics)
         self._plot_ema(time, metrics)
+        self.plot_all_zones()  # Add all zones from metrics_collector
         
         self._customize_plots('Complete Solana Token Price Action')
         plt.show()
@@ -98,7 +100,7 @@ class PricePlotter:
                 label='Live Data', zorder=1
             )
         
-        self._plot_zones(metrics[-1])
+        self._plot_zones(metrics[-1])  # Existing zone logic
         
         if include_backtest:
             if self.targets_index:
@@ -133,14 +135,12 @@ class PricePlotter:
         """Plot zone_confidence values with fill between 0 and the line"""
         confidences = [m['zone_confidence'] for m in metrics]
         
-        # Plot yellow line for zone_confidence with increased visibility
         self.ax_confidence.plot(
             time, confidences, '-', color='yellow', label='Zone Confidence', 
             linewidth=2, zorder=2
         )
         
-        # Fill areas: green above 0, red below 0
-        zero_line = np.zeros(len(time))  # Zero baseline
+        zero_line = np.zeros(len(time))
         self.ax_confidence.fill_between(
             time, zero_line, confidences, where=(np.array(confidences) >= 0),
             facecolor='green', alpha=0.3, interpolate=True, zorder=1
@@ -150,10 +150,8 @@ class PricePlotter:
             facecolor='red', alpha=0.3, interpolate=True, zorder=1
         )
         
-        # Add horizontal line at 0
         self.ax_confidence.axhline(y=0, color='black', linestyle='--', alpha=0.3)
         
-        # Display the current confidence value in real-time
         if len(confidences) > 0:
             current_confidence = confidences[-1]
             self.ax_confidence.text(
@@ -176,16 +174,20 @@ class PricePlotter:
         self.ax_ema.plot(time, ema_longterm, '-', color='green', label='EMA Long-term')
 
     def _plot_zones(self, metric):
-        """Plot support and resistance zones"""
+        """Plot support, resistance, and major zones from metrics"""
         current_price = metric['price']
         
+        # Plot regular support and resistance zones (existing logic, dashed lines)
         for i in range(1, 4):
             dist = metric.get(f'support_level_{i}_dist', 0)
             strength = metric.get(f'support_level_{i}_strength', 0)
             if strength > 0:
                 level = current_price + (dist / 100) * current_price
                 self.ax_price.axhline(
-                    y=level, color='green', linestyle='--', alpha=strength * 0.8,
+                    y=level, 
+                    color='green', 
+                    linestyle='--',  # Dashed line
+                    alpha=strength * 0.8,
                     label=f'Support {i}' if i == 1 else None
                 )
             
@@ -194,9 +196,58 @@ class PricePlotter:
             if strength > 0:
                 level = current_price + (dist / 100) * current_price
                 self.ax_price.axhline(
-                    y=level, color='red', linestyle='--', alpha=strength * 0.8,
+                    y=level, 
+                    color='red', 
+                    linestyle='--',  # Dashed line
+                    alpha=strength * 0.8,
                     label=f'Resistance {i}' if i == 1 else None
                 )
+
+        # Plot major support zone (continuous green line)
+        major_support_dist = metric.get('major_support_level_1_dist', 0)
+        major_support_strength = metric.get('major_support_level_1_strength', 0)
+        print(major_support_dist, major_support_strength)
+        if major_support_strength > 0:
+            major_support_level = current_price + (major_support_dist / 100) * current_price
+            self.ax_price.axhline(
+                y=major_support_level,
+                color='green',
+                linestyle='-',  # Continuous line
+                alpha=major_support_strength * 0.8,
+                label='Major Support'
+            )
+
+        # Plot major resistance zone (continuous red line)
+        major_resistance_dist = metric.get('major_resistance_level_1_dist', 0)
+        major_resistance_strength = metric.get('major_resistance_level_1_strength', 0)
+        print(major_resistance_dist, major_resistance_strength)
+        if major_resistance_strength > 0:
+            major_resistance_level = current_price + (major_resistance_dist / 100) * current_price
+            self.ax_price.axhline(
+                y=major_resistance_level,
+                color='red',
+                linestyle='-',  # Continuous line
+                alpha=major_resistance_strength * 0.8,
+                label='Major Resistance'
+            )
+
+    def plot_all_zones(self):
+        """Plot all zones from metrics_collector.zones[] as thin dashed black lines"""
+        if hasattr(self.trading_engine, 'metric_collector') and hasattr(self.trading_engine.metric_collector, 'zones'):
+            for zone in self.trading_engine.metric_collector.zones:
+                level = zone.get('zone_level', 0)
+                strength = zone.get('strength', 0)
+                if level > 0 and strength > 0:
+                    # Alpha ranges from 0.1 to 0.5 based on strength (assuming strength is 0-1)
+                    alpha = max(0.1, min(0.5, strength * 0.5))
+                    self.ax_price.axhline(
+                        y=level, 
+                        color='black', 
+                        linestyle=':',  # Dashed line
+                        linewidth=0.8,  # Thin line
+                        alpha=alpha, 
+                        label='Collected Zone' if self.trading_engine.metric_collector.zones.index(zone) == 0 else None
+                    )
 
     def _customize_plots(self, title):
         """Apply common styling to all plots"""
@@ -213,7 +264,6 @@ class PricePlotter:
         self.ax_confidence.set_ylabel('Confidence')
         self.ax_confidence.legend()
         self.ax_confidence.grid(True, linestyle='--', alpha=0.7)
-        # self.ax_confidence.set_ylim(-1, 1)  # Fixed range for confidence
         
         self.ax_ema.set_xlabel('Time (index)')
         self.ax_ema.set_ylabel('EMA')

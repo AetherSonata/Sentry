@@ -15,12 +15,10 @@ class MetricCollector:
         self.chart_analyzer = ChartAnalyzer(interval)
         self.price_analyzer = PriceAnalytics()
         self.fibonacci_analyzer = FibonacciAnalyzer(interval)
-        self.confidence_calculator = ConfidenceCalculator(self, alpha=0.01, threshold=0.05)
+        self.confidence_calculator = ConfidenceCalculator(self, self.chart_analyzer, alpha=0.05, threshold=0.1, decay_rate=0.02)
 
-        self.zones = [
-            {"zone_level": 0, "strength": 0, "is_major": False}, 
-            {"zone_level": 0, "strength": 0, "is_major": False} # Default zone for testing
-        ]
+        self.support_zones = []
+        self.resistance_zones = []
 
         self.metrics = []
         if historical_price_data:
@@ -47,24 +45,37 @@ class MetricCollector:
         current_price = self.price_data[-1]["value"]
         zones = self.chart_analyzer.find_key_zones(
             current_step=i,
-            max_zones=6,
+            max_zones=50,  # Large number to get all relevant zones; filtering happens below
             volatility_window=20,
-            filter_percentage=100
+            filter_percentage_minor=75.0,  # Tight window for minor zones
+            filter_percentage_major=150.0,  # Wide window for major zones
+            decay_period=70     # 8 hours
         )
 
-        self.zones.extend(zones)
-
-        # Split zones based on current price
+        # Split zones based on current price and type
         support_zones_raw = [zone for zone in zones if zone["zone_level"] < current_price]
         resistance_zones_raw = [zone for zone in zones if zone["zone_level"] > current_price]
+        major_support_zones_raw = [zone for zone in support_zones_raw if zone["is_major"]]
+        major_resistance_zones_raw = [zone for zone in resistance_zones_raw if zone["is_major"]]
 
-        # Normalize and filter zones 3 support and 3 resistance zones, sort them by proximity to current price
-        support_zones = normalize_zones(support_zones_raw, current_price=current_price, max_zones=3, include_major_flag=True)
-        resistance_zones = normalize_zones(resistance_zones_raw,current_price=current_price, max_zones=3, include_major_flag=True)
+        # Scoring function combining strength and proximity
+        def score_zone(zone, current_price):
+            distance_pct = abs(zone["zone_level"] - current_price) / current_price
+            return zone["strength"] / (1 + distance_pct)
 
-        # check fibonacci levels
-        fib_match_step = self.fibonacci_analyzer.check_fibonacci_time_update()
+        # Select top 3 support and resistance zones (all types) by score
+        self.support_zones = sorted(support_zones_raw, key=lambda x: score_zone(x, current_price), reverse=True)[:3]
+        self.resistance_zones = sorted(resistance_zones_raw, key=lambda x: score_zone(x, current_price), reverse=True)[:3]
 
+        # Select top 1 major support and resistance zones (for simplicity, can increase if needed)
+        major_support_zones = sorted(major_support_zones_raw, key=lambda x: score_zone(x, current_price), reverse=True)[:1]
+        major_resistance_zones = sorted(major_resistance_zones_raw, key=lambda x: score_zone(x, current_price), reverse=True)[:1]
+
+        # Normalize all sets
+        support_zones_normalized = normalize_zones(self.support_zones, current_price=current_price, max_zones=3, include_major_flag=True)
+        resistance_zones_normalized = normalize_zones(self.resistance_zones, current_price=current_price, max_zones=3, include_major_flag=True)
+        major_support_zones_normalized = normalize_zones(major_support_zones, current_price=current_price, max_zones=1, include_major_flag=True)
+        major_resistance_zones_normalized = normalize_zones(major_resistance_zones, current_price=current_price, max_zones=1, include_major_flag=True)
 
         time_features = get_time_features(self.price_data[-1]["unixTime"])  # Corrected to use last price data point
 
@@ -119,6 +130,10 @@ class MetricCollector:
         divergence_signal = divergence["divergence_signal"] if divergence else None
         divergence_strength = divergence["divergence_strength"] if divergence else 0.0
 
+        # Calculate zone confidence
+        zone_confidence = self.confidence_calculator.calculate_zone_confidence(current_price)
+        zone_confidence_slope = self.confidence_calculator.calculate_confidence_slope(zone_confidence)
+
         # Build and return metrics dict
         return {
             "price": current_price,
@@ -149,24 +164,29 @@ class MetricCollector:
                 "signal": divergence_signal,
                 "strength": divergence_strength,
             },
-            "support_level_1_dist": support_zones["level_1_dist"],
-            "support_level_1_strength": support_zones["level_1_strength"],
-            "support_level_2_dist": support_zones["level_2_dist"],
-            "support_level_2_strength": support_zones["level_2_strength"],
-            "support_level_3_dist": support_zones["level_3_dist"],
-            "support_level_3_strength": support_zones["level_3_strength"],
-            "resistance_level_1_dist": resistance_zones["level_1_dist"],
-            "resistance_level_1_strength": resistance_zones["level_1_strength"],
-            "resistance_level_2_dist": resistance_zones["level_2_dist"],
-            "resistance_level_2_strength": resistance_zones["level_2_strength"],
-            "resistance_level_3_dist": resistance_zones["level_3_dist"],
-            "resistance_level_3_strength": resistance_zones["level_3_strength"],
+            "support_level_1_dist": support_zones_normalized["level_1_dist"],
+            "support_level_1_strength": support_zones_normalized["level_1_strength"],
+            "support_level_2_dist": support_zones_normalized["level_2_dist"],
+            "support_level_2_strength": support_zones_normalized["level_2_strength"],
+            "support_level_3_dist": support_zones_normalized["level_3_dist"],
+            "support_level_3_strength": support_zones_normalized["level_3_strength"],
+            "major_support_level_1_dist": major_support_zones_normalized["level_1_dist"],
+            "major_support_level_1_strength": major_support_zones_normalized["level_1_strength"],
+            "resistance_level_1_dist": resistance_zones_normalized["level_1_dist"],
+            "resistance_level_1_strength": resistance_zones_normalized["level_1_strength"],
+            "resistance_level_2_dist": resistance_zones_normalized["level_2_dist"],
+            "resistance_level_2_strength": resistance_zones_normalized["level_2_strength"],
+            "resistance_level_3_dist": resistance_zones_normalized["level_3_dist"],
+            "resistance_level_3_strength": resistance_zones_normalized["level_3_strength"],
+            "major_resistance_level_1_dist": major_resistance_zones_normalized["level_1_dist"],
+            "major_resistance_level_1_strength": major_resistance_zones_normalized["level_1_strength"],
             "token_age": calculate_token_age(self.price_data) / 1440,
             "peak_distance": self.chart_analyzer.calculate_peak_distance(),
             "drawdown_tight": self.chart_analyzer.calculate_drawdown(3, 288)["short"],
             "drawdown_short": self.chart_analyzer.calculate_drawdown(12, 288)["short"],
             "drawdown_long": self.chart_analyzer.calculate_drawdown(12, 288)["long"],
-            "zone_confidence": self.confidence_calculator.calculate_zone_confidence(current_price),        
+            "zone_confidence": zone_confidence, 
+            "zone_confidence_slope": zone_confidence_slope,      
             "time": {
                 "minute_of_day": time_features["minute_of_day"],
                 "day_of_week": time_features["day_of_week"],

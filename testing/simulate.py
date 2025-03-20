@@ -8,8 +8,8 @@ import random
 
 #global variables for data collection
 ADRESSES_TO_FETCH = [ 
-    #                   "CniPCE4b3s8gSUPhUiyMjXnytrEqUrMfSsnbBjLCpump",
-                      "AQiE2ghyFbBsbsfHiTEbKWcCLTDgyGzceKEPWftZpump"
+                      "CniPCE4b3s8gSUPhUiyMjXnytrEqUrMfSsnbBjLCpump",
+                    #   "AQiE2ghyFbBsbsfHiTEbKWcCLTDgyGzceKEPWftZpump"
                     #   "FWAr6oWa6CHg6WUcXu8CqkmsdbhtEqL8t31QTonppump",
                     #   "FtUEW73K6vEYHfbkfpdBZfWpxgQar2HipGdbutEhpump",
                     #   "EF3Ln1DkUB5azvqcaCJgG3RR2qSUJEXxLo1q4ZHzpump",
@@ -79,9 +79,9 @@ if __name__ == "__main__":
         plotter.plot_live()
 
 
-print(f"analyzed {(len(tradingEngine.metric_collector.metrics)*get_interval_in_minutes(REFRESH_INTERVAL)) / 60} hours of data")
-
-# finding specific buy opportunities in the data
+# print(f"analyzed {(len(tradingEngine.metric_collector.metrics)*get_interval_in_minutes(REFRESH_INTERVAL)) / 60} hours of data")
+# print(f"equal to {(len(tradingEngine.metric_collector.metrics)*get_interval_in_minutes(REFRESH_INTERVAL)) / 60 / 24} days of data")
+# # finding specific buy opportunities in the data
 # pointFinder = PointFinder(tradingEngine.metric_collector.metrics)
 # targets = pointFinder.find_significant_price_increases(price_increase=1.5)
 # plotter.add_backtesting_points(targets , [])
