@@ -57,13 +57,24 @@ class PointFinder:
 
         return targets
     
-    def get_indexed_metrics(self, indexes, lower_bound=0):
-        # Filter indexes to include only those > lower_bound and within self.metrics bounds
-        valid_indexes = [idx for idx in indexes if idx > lower_bound and idx < len(self.metrics)]
+    def get_indexed_metrics(self, indexes, lower_bound=0, offset=0):
+        """
+        Retrieve metrics at specified indexes shifted by an offset, 
+        filtering based on a lower bound and the metrics list bounds.
+
+        Args:
+            indexes (list): List of integer indexes to retrieve metrics from.
+            lower_bound (int, optional): Lower bound (exclusive) for filtering shifted indexes. Defaults to 0.
+            offset (int, optional): Value to add to each index. Defaults to 0.
+
+        Returns:
+            list: List of metrics at the valid shifted indexes.
+        """
+        # Filter indexes based on the shifted value (idx + offset) and bounds
+        valid_indexes = [idx + offset for idx in indexes if idx + offset > lower_bound and idx + offset < len(self.metrics)]
         
-        # Return corresponding metrics
+        # Return corresponding metrics at the shifted indexes
         return [self.metrics[idx] for idx in valid_indexes]
-    
     
     def find_fib_618_retracement_recovery(self, tolerance=0.05):
         """

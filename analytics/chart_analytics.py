@@ -26,28 +26,29 @@ class ChartAnalyzer:
 
         current_price = self.price_series.iloc[-1]
         volatility = self.price_series[-volatility_window:].pct_change().std() * 100 if available_candles >= volatility_window else 1.0
+        price_range = max(self.price_series) - min(self.price_series) if self.price_series.any() else current_price * 0.01
 
-        # Adjust peak detection parameters based on token age
+        # Adjust peak detection parameters based on token age and price level
         age_factor = min(available_candles / 1728, 1.0)  # Scale up to 9 days (1728 intervals at 5m)
 
         # Update minor zones every interval
         lookback_minor = min(available_candles, int(volatility * 12))
         price_window_minor = self.price_series[-lookback_minor:]
-        peak_distance_minor = max(10, int(volatility * 10 * (1 + age_factor)))  # Stricter spacing
+        # Scale peak distance with price range and current price
+        peak_distance_minor = max(10, int((price_range / current_price) * 20 * (1 + age_factor) + volatility * 5))
         self._update_zones(price_window_minor, peak_distance_minor, current_step, is_major=False, prominence_factor=1.0)
 
         # Update major zones periodically (every 12 hours)
         if current_step % 144 == 0 or self.last_update == -1:
             lookback_major = min(available_candles, 576)  # 48 hours
             price_window_major = self.price_series[-lookback_major:]
-            peak_distance_major = max(20, int(volatility * 20 * (1 + age_factor)))  # Even stricter
+            # Larger scaling for major zones
+            peak_distance_major = max(20, int((price_range / current_price) * 40 * (1 + age_factor) + volatility * 10))
             self._update_zones(price_window_major, peak_distance_major, current_step, is_major=True, prominence_factor=2.0)
-            price_range = max(self.price_series) - min(self.price_series) if self.price_series.any() else 1
             self._cluster_persistent_zones(cluster_threshold=0.01 * price_range)  # Tighter clustering
             self.last_update = current_step
 
         # Decay untouched zones (every 12 hours, more aggressive)
-        decay_period = decay_period  # 12 hours
         for zone in self.zones:
             if current_step - zone["last_touched"] > decay_period:
                 decay_amount = 2 if not zone["is_major"] else 1  # Faster decay for minor zones

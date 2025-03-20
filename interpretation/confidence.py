@@ -85,19 +85,17 @@ class ConfidenceCalculator:
 
         return self.zone_confidence
 
-    def calculate_confidence_slope(self, lookback=5):
-        """Calculate the slope of zone_confidence over the last lookback intervals.
+    def calculate_confidence_slope(self, lookback=3):
+        """Calculate the slope of zone_confidence as a percentage change over the last lookback intervals.
 
         Args:
             lookback (int, optional): Number of past intervals to consider for the slope.
-                                      If None, uses self.slope_window.
+                                    Defaults to 3.
 
         Returns:
-            float: Slope of zone_confidence over the specified lookback period.
+            float: Slope as a percentage change, normalized between -1 and 1.
+                1 represents a 100% increase per interval, -1 represents a 100% decrease.
         """
-        if lookback is None:
-            lookback = self.slope_window
-
         # Ensure lookback is not larger than the history
         lookback = min(lookback, len(self.confidence_history))
 
@@ -108,6 +106,18 @@ class ConfidenceCalculator:
         y = np.array(self.confidence_history[-lookback:])  # Confidence values
         x = np.arange(lookback)  # Time indices (0, 1, 2, ..., lookback-1)
 
-        # Fit a linear polynomial (degree 1) and get the slope
-        slope, _ = np.polyfit(x, y, 1)
-        return slope
+        # Calculate percentage change between the first and last points
+        initial_confidence = y[0]
+        final_confidence = y[-1]
+        
+        if initial_confidence == 0:  # Avoid division by zero
+            return 0.0 if final_confidence == 0 else (1.0 if final_confidence > 0 else -1.0)
+
+        # Percentage change over the entire period
+        pct_change = (final_confidence - initial_confidence) / initial_confidence
+
+        # Normalize to per-interval slope and bound between -1 and 1
+        slope = pct_change / (lookback - 1)  # Divide by number of intervals
+        normalized_slope = max(min(slope, 1.0), -1.0)  # Clamp to [-1, 1]
+
+        return normalized_slope

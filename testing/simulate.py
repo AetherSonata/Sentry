@@ -63,9 +63,10 @@ if __name__ == "__main__":
     #initialize data collector with simulated historical data for each token (historical + 1 live data point)
     #initialize starting metrics for the token
     starting_index = random.randint(10, 150)
+    end_index = len(historical_data["data"]["items"]) - 200
     print(f"Starting index: {starting_index}")  
 
-    starting_index = 0
+    # starting_index = 200
     
     tradingEngine = TradingEngine(REFRESH_INTERVAL, historical_data["data"]["items"][: starting_index])   
 

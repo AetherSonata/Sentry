@@ -17,10 +17,15 @@ class TradingEngine:
         self.price_data = historical_price_data
         self.interval = interval
         #initialize the metricCollector and calculate metrics for passed historical data
-        self.metric_collector = MetricCollector(interval, self.price_data)
-        self.metrics = self.metric_collector.metrics
+        self.metric_collector = MetricCollector(interval)
 
-    def check_for_action(self, price_data):
+        if historical_price_data:
+            for price_point in historical_price_data:
+                self.metric_collector.add_new_price_point_and_calculate_metrics(price_point)
+                # print(f"lenge of metric data: {len(self.metric_collector.metrics)}")
+        
+
+    def check_for_action(self):
         self.metric_collector.add_new_price_point_and_calculate_metrics(self.price_data[-1])
         
 
@@ -53,7 +58,7 @@ class TradingEngine:
 
     def add_new_price_point(self, new_price_data):
         self.price_data.append(new_price_data)
-        self.check_for_action(self.price_data)
+        self.check_for_action()
 
     def calculate_buy_amount(self, current_price):
         available_balance = self.portfolio.holdings["USDC"]

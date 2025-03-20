@@ -6,23 +6,24 @@ from analytics.fibonacci_analyzer import FibonacciAnalyzer
 from interpretation.confidence import ConfidenceCalculator
 
 class MetricCollector:
-    def __init__(self, interval, historical_price_data):
+    def __init__(self, interval):
         self.interval = interval
         self.interval_in_minutes = get_interval_in_minutes(interval)
-        self.price_data = historical_price_data  # List of dicts: [{"value": price, "unixTime": ts}, ...]
+        self.price_data = []  # List of dicts: [{"value": price, "unixTime": ts}, ...]
 
         self.indicator_analyzer = IndicatorAnalyzer(interval)
         self.chart_analyzer = ChartAnalyzer(interval)
         self.price_analyzer = PriceAnalytics()
         self.fibonacci_analyzer = FibonacciAnalyzer(interval)
-        self.confidence_calculator = ConfidenceCalculator(self, self.chart_analyzer, alpha=0.05, threshold=0.1, decay_rate=0.02)
+        self.confidence_calculator = ConfidenceCalculator(self, self.chart_analyzer, alpha=0.08, threshold=0.1, decay_rate=0.05)
 
         self.support_zones = []
         self.resistance_zones = []
 
         self.metrics = []
-        if historical_price_data:
-            self.initialize_prior_metrics()
+
+        # if len(historical_price_data) > 0:
+        #     self.initialize_prior_metrics()
 
 
     def initialize_prior_metrics(self):
@@ -51,7 +52,7 @@ class MetricCollector:
             filter_percentage_major=150.0,  # Wide window for major zones
             decay_period=70     # 8 hours
         )
-
+        
         # Split zones based on current price and type
         support_zones_raw = [zone for zone in zones if zone["zone_level"] < current_price]
         resistance_zones_raw = [zone for zone in zones if zone["zone_level"] > current_price]
@@ -62,7 +63,7 @@ class MetricCollector:
         def score_zone(zone, current_price):
             distance_pct = abs(zone["zone_level"] - current_price) / current_price
             return zone["strength"] / (1 + distance_pct)
-
+        
         # Select top 3 support and resistance zones (all types) by score
         self.support_zones = sorted(support_zones_raw, key=lambda x: score_zone(x, current_price), reverse=True)[:3]
         self.resistance_zones = sorted(resistance_zones_raw, key=lambda x: score_zone(x, current_price), reverse=True)[:3]
@@ -76,7 +77,7 @@ class MetricCollector:
         resistance_zones_normalized = normalize_zones(self.resistance_zones, current_price=current_price, max_zones=3, include_major_flag=True)
         major_support_zones_normalized = normalize_zones(major_support_zones, current_price=current_price, max_zones=1, include_major_flag=True)
         major_resistance_zones_normalized = normalize_zones(major_resistance_zones, current_price=current_price, max_zones=1, include_major_flag=True)
-
+        
         time_features = get_time_features(self.price_data[-1]["unixTime"])  # Corrected to use last price data point
 
         # Pre-compute dependent values
@@ -132,8 +133,9 @@ class MetricCollector:
 
         # Calculate zone confidence
         zone_confidence = self.confidence_calculator.calculate_zone_confidence(current_price)
-        zone_confidence_slope = self.confidence_calculator.calculate_confidence_slope(zone_confidence)
-
+        zone_confidence_slope = self.confidence_calculator.calculate_confidence_slope()
+        # print(f"Zone confidence: {zone_confidence}, slope: {zone_confidence_slope}")
+        
         # Build and return metrics dict
         return {
             "price": current_price,

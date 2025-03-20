@@ -5,7 +5,7 @@ import numpy as np
 class PricePlotter:
     def __init__(self, trading_engine):
         self.trading_engine = trading_engine
-        self.initial_data_size = len(trading_engine.metrics)
+        self.initial_data_size = len(trading_engine.price_data)
         
         # Initialize figure with four subplots
         plt.ion()
@@ -35,7 +35,7 @@ class PricePlotter:
     def plot_live(self):
         """Plot price action and indicators in real-time"""
         self._clear_axes()
-        metrics = self.trading_engine.metrics
+        metrics = self.trading_engine.metric_collector.metrics
         time = list(range(len(metrics)))
         
         self._plot_price(time, metrics, include_backtest=False)
@@ -53,7 +53,7 @@ class PricePlotter:
         plt.ioff()
         self._clear_axes()
         
-        metrics = self.trading_engine.metrics
+        metrics = self.trading_engine.metric_collector.metrics
         end_position = end_position if end_position is not None else len(metrics)
         time = list(range(start_position, end_position))
         metrics = metrics[start_position:end_position]
@@ -69,8 +69,8 @@ class PricePlotter:
         plt.show()
 
     def add_backtesting_points(self, targets_index, similars_index):
-        """Store backtesting indices that match self.trading_engine.metrics and enable plotting."""
-        max_idx = len(self.trading_engine.metrics) - 1
+        """Store backtesting indices that match self.trading_engine.metric_collector.metrics and enable plotting."""
+        max_idx = len(self.trading_engine.metric_collector.metrics) - 1
         self.targets_index = [i for i in targets_index if 0 <= i <= max_idx]
         self.similars_index = [i for i in similars_index if 0 <= i <= max_idx]
         self.plot_backtest = True
@@ -94,7 +94,7 @@ class PricePlotter:
             )
         
         if len(metrics) > self.initial_data_size:
-            start_live = max(0, self.initial_data_size - (len(self.trading_engine.metrics) - len(metrics)))
+            start_live = max(0, self.initial_data_size - (len(self.trading_engine.metric_collector.metrics) - len(metrics)))
             self.ax_price.plot(
                 time[start_live:], prices[start_live:], 'o-', color='blue',
                 label='Live Data', zorder=1
@@ -206,7 +206,7 @@ class PricePlotter:
         # Plot major support zone (continuous green line)
         major_support_dist = metric.get('major_support_level_1_dist', 0)
         major_support_strength = metric.get('major_support_level_1_strength', 0)
-        print(major_support_dist, major_support_strength)
+        # print(major_support_dist, major_support_strength)
         if major_support_strength > 0:
             major_support_level = current_price + (major_support_dist / 100) * current_price
             self.ax_price.axhline(
@@ -220,7 +220,7 @@ class PricePlotter:
         # Plot major resistance zone (continuous red line)
         major_resistance_dist = metric.get('major_resistance_level_1_dist', 0)
         major_resistance_strength = metric.get('major_resistance_level_1_strength', 0)
-        print(major_resistance_dist, major_resistance_strength)
+        # print(major_resistance_dist, major_resistance_strength)
         if major_resistance_strength > 0:
             major_resistance_level = current_price + (major_resistance_dist / 100) * current_price
             self.ax_price.axhline(
