@@ -196,16 +196,18 @@ class PricePlotter:
         current_price = metric['price']
         
         # Get support and resistance zones from the metric
-        support_zones = self.trading_engine.metric_collector.support_zones[-1] if self.trading_engine.metric_collector.support_zones else []
-        resistance_zones = self.trading_engine.metric_collector.resistance_zones[-1] if self.trading_engine.metric_collector.resistance_zones else []
-        print(support_zones)
-        print(resistance_zones)
+        key_zone_1 = self.trading_engine.metric_collector.key_zone_1[-1] if self.trading_engine.metric_collector.key_zone_1 else []
+        key_zone_2 = self.trading_engine.metric_collector.key_zone_2[-1] if self.trading_engine.metric_collector.key_zone_2 else []
+
+        key_zone_3 = self.trading_engine.metric_collector.key_zone_3[-1] if self.trading_engine.metric_collector.key_zone_3 else []
+        key_zone_4 = self.trading_engine.metric_collector.key_zone_4[-1] if self.trading_engine.metric_collector.key_zone_4 else []
+
         
         # Plot support zones as green dashed lines
-        for i, zone in enumerate(support_zones):
-            level = support_zones['level']
-            strength = support_zones['strength']  # Default to 1 if strength is not present
-            label = 'Support Zones' if i == 0 else None  # Label only the first support zone
+        for i, zone in enumerate(key_zone_1):
+            level = key_zone_1['level']
+            strength = key_zone_1['strength']  # Default to 1 if strength is not present
+            label = 'key_zone_1' if i == 0 else None  # Label only the first support zone
             self.ax_price.axhline(
                 y=level, 
                 color='green', 
@@ -215,13 +217,37 @@ class PricePlotter:
             )
         
         # Plot resistance zones as red dashed lines
-        for i, zone in enumerate(resistance_zones):
-            level = resistance_zones['level']
-            strength = resistance_zones.get('strength', 1)  # Default to 1 if strength is not present
-            label = 'Resistance Zones' if i == 0 else None  # Label only the first resistance zone
+        for i, zone in enumerate(key_zone_2):
+            level = key_zone_2['level']
+            strength = key_zone_2.get('strength', 1)  # Default to 1 if strength is not present
+            label = 'key_zone_2' if i == 0 else None  # Label only the first resistance zone
             self.ax_price.axhline(
                 y=level, 
                 color='red', 
+                linestyle='--',  # Dashed line
+                # alpha=strength * 0.8,  # Adjust transparency based on strength
+                label=label
+            )
+
+        for i, zone in enumerate(key_zone_3):
+            level = key_zone_3['level']
+            strength = key_zone_3.get('strength', 1)  # Default to 1 if strength is not present
+            label = 'key_zone_3' if i == 0 else None  # Label only the first resistance zone
+            self.ax_price.axhline(
+                y=level, 
+                color='purple', 
+                linestyle='--',  # Dashed line
+                # alpha=strength * 0.8,  # Adjust transparency based on strength
+                label=label
+            )
+
+        for i, zone in enumerate(key_zone_4):
+            level = key_zone_4['level']
+            strength = key_zone_4.get('strength', 1)  # Default to 1 if strength is not present
+            label = 'key_zone_4' if i == 0 else None  # Label only the first resistance zone
+            self.ax_price.axhline(
+                y=level, 
+                color='yellow', 
                 linestyle='--',  # Dashed line
                 # alpha=strength * 0.8,  # Adjust transparency based on strength
                 label=label

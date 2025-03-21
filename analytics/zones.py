@@ -14,15 +14,9 @@ class ZoneAnalyzer:
         # Persistent storage for zones
         self.support_zones = []  # List of lists of zone dicts
         self.resistance_zones = []  # List of lists of zone dicts
-        # Configuration parameters
-        self.strong_distance = 60      # Min intervals between strong peaks/troughs
-        self.strong_prominence = 20    # Min prominence for strong peaks/troughs
-        self.peak_distance =  10        # Min distance for general peaks/troughs
-        self.peak_rank_width = 5       # Width to consider nearby peaks for merging/ranking
-        self.min_pivot_rank = 3        # Min rejections to qualify as a general zone
-        self.window = 100              # Window size for ATH/ATL calculation
 
-    def get_zones(self):
+
+    def get_zones(self, strong_distance=60, strong_prominence=20, peak_distance=10, peak_rank_width=5, min_pivot_rank=3, window=100):
         """
         Calculate and return the current support and resistance zones as lists.
 
@@ -30,33 +24,42 @@ class ZoneAnalyzer:
             tuple: (support_zones, resistance_zones), where each is a list of dicts
                    with 'level' (float) and 'strength' (float) keys.
         """
+                # Configuration parameters
+
+        # strong_distance = 60      # Min intervals between strong peaks/troughs
+        # strong_prominence = 20    # Min prominence for strong peaks/troughs
+        # peak_distance =  10        # Min distance for general peaks/troughs
+        # peak_rank_width = 5       # Width to consider nearby peaks for merging/ranking
+        # min_pivot_rank = 3        # Min rejections to qualify as a general zone
+        # window = 100              # Window size for ATH/ATL calculation
+
         # Extract price data
         prices = [entry["value"] for entry in self.metrics_analyzer.price_data]
         if len(prices) < 2:
             return [], []
 
         # Calculate ATH and ATL within the window
-        ath = max(prices[-self.window:]) if len(prices) >= self.window else max(prices)
-        atl = min(prices[-self.window:]) if len(prices) >= self.window else min(prices)
+        ath = max(prices[-window:]) if len(prices) >= window else max(prices)
+        atl = min(prices[-window:]) if len(prices) >= window else min(prices)
 
         ### Resistance Zones Calculation
         # Find strong peaks
-        strong_peaks, _ = find_peaks(prices, distance=self.strong_distance, prominence=self.strong_prominence)
+        strong_peaks, _ = find_peaks(prices, distance=strong_distance, prominence=strong_prominence)
         strong_peak_values = [{'level': prices[i], 'strength': 50.0} for i in strong_peaks]
         if ath not in [p['level'] for p in strong_peak_values]:
             strong_peak_values.append({'level': ath, 'strength': 100.0})
 
         # Find general peaks
-        peaks, _ = find_peaks(prices, distance=self.peak_distance)
+        peaks, _ = find_peaks(prices, distance=peak_distance)
         peak_to_rank = {peak: 0 for peak in peaks}
         for i, curr_peak in enumerate(peaks):
             curr_price = prices[curr_peak]
             for prev_peak in peaks[:i]:
-                if abs(curr_price - prices[prev_peak]) <= self.peak_rank_width:
+                if abs(curr_price - prices[prev_peak]) <= peak_rank_width:
                     peak_to_rank[curr_peak] += 1
         general_resistances = [
             {'level': prices[peak], 'strength': 10.0 * (rank + 1)}
-            for peak, rank in peak_to_rank.items() if rank >= self.min_pivot_rank
+            for peak, rank in peak_to_rank.items() if rank >= min_pivot_rank
         ]
 
         # Combine all resistance zones
@@ -68,7 +71,7 @@ class ZoneAnalyzer:
         if resistances:
             current_bin = [resistances[0]]
             for r in resistances[1:]:
-                if r['level'] - current_bin[-1]['level'] < self.peak_rank_width:
+                if r['level'] - current_bin[-1]['level'] < peak_rank_width:
                     current_bin.append(r)
                 else:
                     resistance_bins.append(current_bin)
@@ -86,22 +89,22 @@ class ZoneAnalyzer:
         # Negate prices to find troughs
         neg_prices = [-p for p in prices]
         # Find strong troughs
-        strong_troughs, _ = find_peaks(neg_prices, distance=self.strong_distance, prominence=self.strong_prominence)
+        strong_troughs, _ = find_peaks(neg_prices, distance=strong_distance, prominence=strong_prominence)
         strong_trough_values = [{'level': prices[i], 'strength': 50.0} for i in strong_troughs]
         if atl not in [p['level'] for p in strong_trough_values]:
             strong_trough_values.append({'level': atl, 'strength': 100.0})
 
         # Find general troughs
-        troughs, _ = find_peaks(neg_prices, distance=self.peak_distance)
+        troughs, _ = find_peaks(neg_prices, distance=peak_distance)
         trough_to_rank = {trough: 0 for trough in troughs}
         for i, curr_trough in enumerate(troughs):
             curr_price = prices[curr_trough]
             for prev_trough in troughs[:i]:
-                if abs(curr_price - prices[prev_trough]) <= self.peak_rank_width:
+                if abs(curr_price - prices[prev_trough]) <= peak_rank_width:
                     trough_to_rank[curr_trough] += 1
         general_supports = [
             {'level': prices[trough], 'strength': 10.0 * (rank + 1)}
-            for trough, rank in trough_to_rank.items() if rank >= self.min_pivot_rank
+            for trough, rank in trough_to_rank.items() if rank >= min_pivot_rank
         ]
 
         # Combine all support zones
@@ -113,7 +116,7 @@ class ZoneAnalyzer:
         if supports:
             current_bin = [supports[0]]
             for s in supports[1:]:
-                if s['level'] - current_bin[-1]['level'] < self.peak_rank_width:
+                if s['level'] - current_bin[-1]['level'] < peak_rank_width:
                     current_bin.append(s)
                 else:
                     support_bins.append(current_bin)
@@ -128,8 +131,8 @@ class ZoneAnalyzer:
         ]
 
         # Store zones for persistence
-        self.support_zones.append(support_zones)
-        self.resistance_zones.append(resistance_zones)
+        # self.support_zones.append(support_zones)
+        # self.resistance_zones.append(resistance_zones)
 
         # Return as lists for plotting
         return support_zones, resistance_zones
@@ -141,7 +144,7 @@ class ZoneAnalyzer:
         Args:
             new_price (float): The latest price to check against zones.
         """
-        tolerance = self.peak_rank_width  # Price range to consider a zone "revisited"
+        tolerance = peak_rank_width  # Price range to consider a zone "revisited"
         decay_factor = 0.95  # Reduce strength by 5% if not revisited
 
         if not self.support_zones or not self.resistance_zones:

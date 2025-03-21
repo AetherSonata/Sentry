@@ -25,6 +25,11 @@ class MetricCollector:
 
         self.zones=[]
 
+        self.key_zone_1 = []
+        self.key_zone_2 = []
+        self.key_zone_3 = []
+        self.key_zone_4 = []
+
     def add_new_price_point_and_calculate_metrics(self, new_price_point):
         self.price_data.append(new_price_point)
         self.indicator_analyzer.append_price(new_price_point)
@@ -37,16 +42,31 @@ class MetricCollector:
     def collect_all_metrics_for_current_point(self, i):
         current_price = self.price_data[-1]["value"]
         
-        self.support_zones, self.resistance_zones = self.zone_analyzer.get_zones()
+        self.key_zone_1, self.key_zone_2 = self.zone_analyzer.get_zones(
+            strong_distance=60, 
+            strong_prominence=20, 
+            peak_distance=10, 
+            peak_rank_width=5, 
+            min_pivot_rank=3, 
+            window=100
+        )
+        self.key_zone_3, self.key_zone_4 = self.zone_analyzer.get_zones(
+            strong_distance=30, 
+            strong_prominence=200, 
+            peak_distance=50, 
+            peak_rank_width=20, 
+            min_pivot_rank=35, 
+            window=100
+        )
 
-        self.zones = (self.chart_analyzer.find_key_zones(
-            current_step=i,
-            max_zones=50,  # Large number to get all relevant zones; filtering happens below
-            volatility_window=20,
-            filter_percentage_minor=75.0,  # Tight window for minor zones
-            filter_percentage_major=150.0,  # Wide window for major zones
-            decay_period=70     # 8 hours
-        ))
+        # self.zones = (self.chart_analyzer.find_key_zones(
+        #     current_step=i,
+        #     max_zones=50,  # Large number to get all relevant zones; filtering happens below
+        #     volatility_window=20,
+        #     filter_percentage_minor=75.0,  # Tight window for minor zones
+        #     filter_percentage_major=150.0,  # Wide window for major zones
+        #     decay_period=70     # 8 hours
+        # ))
         
 
         # print(f"Support zones: {self.support_zones}")
@@ -124,8 +144,8 @@ class MetricCollector:
         # Extract EMA histories from MetricCollectoss self.metrics
         short_ema_values = [m["ema"]["short"] for m in self.metrics if "ema" in m and "short" in m["ema"]][-5:]
         medium_ema_values = [m["ema"]["medium"] for m in self.metrics if "ema" in m and "medium" in m["ema"]][-5:]
-        medium_ema_values11 = [m["ema"]["medium"] for m in self.metrics if "ema" in m and "medium" in m["ema"]][-11:]
-        long_ema_values = [m["ema"]["long"] for m in self.metrics if "ema" in m and "long" in m["ema"]][-11:]
+        medium_ema_values11 = [m["ema"]["long"] for m in self.metrics if "ema" in m and "medium" in m["ema"]][-11:]
+        long_ema_values = [m["ema"]["longterm"] for m in self.metrics if "ema" in m and "long" in m["ema"]][-11:]
 
         crossover_short_medium = self.indicator_analyzer.calculate_ema_crossovers(
             short_ema_values, medium_ema_values, ema_short, ema_medium

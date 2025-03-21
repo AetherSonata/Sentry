@@ -10,8 +10,8 @@ import random
 ADRESSES_TO_FETCH = [ 
                     #   "CniPCE4b3s8gSUPhUiyMjXnytrEqUrMfSsnbBjLCpump",
                     #   "AQiE2ghyFbBsbsfHiTEbKWcCLTDgyGzceKEPWftZpump"
-                      "FWAr6oWa6CHg6WUcXu8CqkmsdbhtEqL8t31QTonppump",
-                    #   "FtUEW73K6vEYHfbkfpdBZfWpxgQar2HipGdbutEhpump",
+                    #   "FWAr6oWa6CHg6WUcXu8CqkmsdbhtEqL8t31QTonppump",
+                      "FtUEW73K6vEYHfbkfpdBZfWpxgQar2HipGdbutEhpump",
                     #   "EF3Ln1DkUB5azvqcaCJgG3RR2qSUJEXxLo1q4ZHzpump",
                     #   "GYTd9XbZTfwicCV28LGkwiDF4DgpXTTAi2UeCajfpump",
                     #   "hV7MQkCpjvuTTnPJXPhPXzvmtMxk8A8ct1KPiRMpump",
@@ -63,10 +63,13 @@ if __name__ == "__main__":
     #initialize data collector with simulated historical data for each token (historical + 1 live data point)
     #initialize starting metrics for the token
     starting_index = random.randint(10, 150)
-    end_index = len(historical_data["data"]["items"]) - 200
+    end_index = len(historical_data["data"]["items"]) - 1500
+    historical_data["data"]["items"] = historical_data["data"]["items"][ end_index:]
     print(f"Starting index: {starting_index}")  
+    print(f"End index: {end_index}")  
 
     # starting_index = 200
+
     
     tradingEngine = TradingEngine(REFRESH_INTERVAL, historical_data["data"]["items"][: starting_index])   
 
