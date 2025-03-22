@@ -63,12 +63,12 @@ if __name__ == "__main__":
     #initialize data collector with simulated historical data for each token (historical + 1 live data point)
     #initialize starting metrics for the token
     starting_index = random.randint(10, 150)
-    end_index = len(historical_data["data"]["items"]) - 1500
-    historical_data["data"]["items"] = historical_data["data"]["items"][ end_index:]
+    starting_index = 0
+    end_index = 600
+
     print(f"Starting index: {starting_index}")  
     print(f"End index: {end_index}")  
 
-    # starting_index = 200
 
     
     tradingEngine = TradingEngine(REFRESH_INTERVAL, historical_data["data"]["items"][: starting_index])   
@@ -77,19 +77,20 @@ if __name__ == "__main__":
     plotter = PricePlotter(tradingEngine)
 
     #SIMULATION ENVIRONMENT: iterate through historical data in a loop, starting one interval after the starting index, mocking real-time data feed
-    for i in range( starting_index, len(historical_data["data"]["items"])):
+    for i in range( starting_index, (end_index if end_index is not None else
+        len(historical_data["data"]["items"]))):     
         tradingEngine.add_new_price_point(historical_data["data"]["items"][i]) # Simulate real-time data feed
 
-        plotter.plot_live()
+        # plotter.plot_live()
 
 
-# print(f"analyzed {(len(tradingEngine.metric_collector.metrics)*get_interval_in_minutes(REFRESH_INTERVAL)) / 60} hours of data")
-# print(f"equal to {(len(tradingEngine.metric_collector.metrics)*get_interval_in_minutes(REFRESH_INTERVAL)) / 60 / 24} days of data")
-# # finding specific buy opportunities in the data
-# pointFinder = PointFinder(tradingEngine.metric_collector.metrics)
-# targets = pointFinder.find_significant_price_increases(price_increase=1.5)
-# plotter.add_backtesting_points(targets , [])
-# plotter.plot_static()
+print(f"analyzed {(len(tradingEngine.metric_collector.metrics)*get_interval_in_minutes(REFRESH_INTERVAL)) / 60} hours of data")
+print(f"equal to {(len(tradingEngine.metric_collector.metrics)*get_interval_in_minutes(REFRESH_INTERVAL)) / 60 / 24} days of data")
+# finding specific buy opportunities in the data
+pointFinder = PointFinder(tradingEngine.metric_collector.metrics)
+targets = pointFinder.find_significant_price_increases(price_increase=1.5)
+plotter.add_backtesting_points(targets , [])
+plotter.plot_static()
 
 # print(pointFinder.get_indexed_metrics(targets, lower_bound=400))
 

@@ -42,9 +42,9 @@ class PricePlotter:
         self._plot_rsi(time, metrics)
         self._plot_zone_confidence(time, metrics)
         self._plot_ema(time, metrics)
-        self.plot_all_zones()  # Add all zones from metrics_collector
+        # self.plot_all_zones()  # Add all zones from metrics_collector
         
-        self._customize_plots('Live Solana Token Price Action')
+        self._customize_plots('Simulated Price Environment')
         plt.draw()
         plt.pause(0.001)
 
@@ -63,7 +63,7 @@ class PricePlotter:
         self._plot_rsi(time, metrics)
         self._plot_zone_confidence(time, metrics)
         self._plot_ema(time, metrics)
-        self.plot_all_zones()  # Add all zones from metrics_collector
+        # self.plot_all_zones()  # Add all zones from metrics_collector
         
         self._customize_plots('Complete Solana Token Price Action')
         plt.show()
@@ -191,85 +191,57 @@ class PricePlotter:
         self.ax_ema.plot(time, ema_longterm, '-', color='green', label='EMA Long-term')
 
     def _plot_zones(self, metric):
-        """Plot support and resistance zones from metrics"""
-        # Get the current price (though not needed here since levels are pre-calculated)
+        """Plot support and resistance zones from metrics."""
+        # Get the current price (not needed for plotting but kept for context)
         current_price = metric['price']
         
-        # Get support and resistance zones from the metric
-        key_zone_1 = self.trading_engine.metric_collector.key_zone_1[-1] if self.trading_engine.metric_collector.key_zone_1 else []
-        key_zone_2 = self.trading_engine.metric_collector.key_zone_2[-1] if self.trading_engine.metric_collector.key_zone_2 else []
+        # Get support and resistance zones from metric_collector attributes
+        key_zone_1 = self.trading_engine.metric_collector.key_zone_1  # Short-term support
+        key_zone_2 = self.trading_engine.metric_collector.key_zone_2  # Short-term resistance
+        key_zone_3 = self.trading_engine.metric_collector.key_zone_3  # Mid-term support
+        key_zone_4 = self.trading_engine.metric_collector.key_zone_4  # Mid-term resistance
+        key_zone_5 = self.trading_engine.metric_collector.key_zone_5  # Long-term support
+        key_zone_6 = self.trading_engine.metric_collector.key_zone_6  # Long-term resistance
 
-        key_zone_3 = self.trading_engine.metric_collector.key_zone_3[-1] if self.trading_engine.metric_collector.key_zone_3 else []
-        key_zone_4 = self.trading_engine.metric_collector.key_zone_4[-1] if self.trading_engine.metric_collector.key_zone_4 else []
-
-        
-        # Plot support zones as green dashed lines
-        for i, zone in enumerate(key_zone_1):
-            level = key_zone_1['level']
-            strength = key_zone_1['strength']  # Default to 1 if strength is not present
-            label = 'key_zone_1' if i == 0 else None  # Label only the first support zone
+        # Helper function to plot a single zone
+        def plot_zone(zone_data, color, label):
+            if not zone_data or 'level' not in zone_data:  # Skip if zone is empty or malformed
+                return
+            level = zone_data['level']
+            strength = zone_data.get('strength', 1)  # Default to 1 if strength is not present
             self.ax_price.axhline(
-                y=level, 
-                color='green', 
-                linestyle='--',  # Dashed line
-                # alpha=strength * 0.8,  # Adjust transparency based on strength
-                label=label
-            )
-        
-        # Plot resistance zones as red dashed lines
-        for i, zone in enumerate(key_zone_2):
-            level = key_zone_2['level']
-            strength = key_zone_2.get('strength', 1)  # Default to 1 if strength is not present
-            label = 'key_zone_2' if i == 0 else None  # Label only the first resistance zone
-            self.ax_price.axhline(
-                y=level, 
-                color='red', 
-                linestyle='--',  # Dashed line
-                # alpha=strength * 0.8,  # Adjust transparency based on strength
+                y=level,
+                color=color,
+                linestyle='--',
+                # alpha=strength * 0.8,  # Uncomment if you want transparency based on strength
                 label=label
             )
 
-        for i, zone in enumerate(key_zone_3):
-            level = key_zone_3['level']
-            strength = key_zone_3.get('strength', 1)  # Default to 1 if strength is not present
-            label = 'key_zone_3' if i == 0 else None  # Label only the first resistance zone
-            self.ax_price.axhline(
-                y=level, 
-                color='purple', 
-                linestyle='--',  # Dashed line
-                # alpha=strength * 0.8,  # Adjust transparency based on strength
-                label=label
-            )
+        # Plot each zone with its color and label
+        plot_zone(key_zone_1, 'green', 'key_zone_1')
+        plot_zone(key_zone_2, 'red', 'key_zone_2')
+        plot_zone(key_zone_3, 'purple', 'key_zone_3')
+        plot_zone(key_zone_4, 'yellow', 'key_zone_4')
+        plot_zone(key_zone_5, 'brown', 'key_zone_5')
+        plot_zone(key_zone_6, 'pink', 'key_zone_6')
 
-        for i, zone in enumerate(key_zone_4):
-            level = key_zone_4['level']
-            strength = key_zone_4.get('strength', 1)  # Default to 1 if strength is not present
-            label = 'key_zone_4' if i == 0 else None  # Label only the first resistance zone
-            self.ax_price.axhline(
-                y=level, 
-                color='yellow', 
-                linestyle='--',  # Dashed line
-                # alpha=strength * 0.8,  # Adjust transparency based on strength
-                label=label
-            )
-
-    def plot_all_zones(self):
-        """Plot all zones from metrics_collector.zones[] as thin dashed black lines"""
-        if hasattr(self.trading_engine, 'metric_collector') and hasattr(self.trading_engine.metric_collector, 'zones'):
-            for zone in self.trading_engine.metric_collector.zones:
-                level = zone.get('zone_level', 0)
-                strength = zone.get('strength', 0)
-                if level > 0 and strength > 0:
-                    # Alpha ranges from 0.1 to 0.5 based on strength (assuming strength is 0-1)
-                    alpha = max(0.1, min(0.5, strength * 0.5))
-                    self.ax_price.axhline(
-                        y=level, 
-                        color='black', 
-                        linestyle=':',  # Dashed line
-                        linewidth=0.8,  # Thin line
-                        alpha=alpha, 
-                        label='Collected Zone' if self.trading_engine.metric_collector.zones.index(zone) == 0 else None
-                    )
+    # def plot_all_zones(self):
+    #     """Plot all zones from metrics_collector.zones[] as thin dashed black lines"""
+    #     if hasattr(self.trading_engine, 'metric_collector') and hasattr(self.trading_engine.metric_collector, 'zones'):
+    #         for zone in self.trading_engine.metric_collector.zones:
+    #             level = zone.get('zone_level', 0)
+    #             strength = zone.get('strength', 0)
+    #             if level > 0 and strength > 0:
+    #                 # Alpha ranges from 0.1 to 0.5 based on strength (assuming strength is 0-1)
+    #                 alpha = max(0.1, min(0.5, strength * 0.5))
+    #                 self.ax_price.axhline(
+    #                     y=level, 
+    #                     color='black', 
+    #                     linestyle=':',  # Dashed line
+    #                     linewidth=0.8,  # Thin line
+    #                     alpha=alpha, 
+    #                     label='Collected Zone' if self.trading_engine.metric_collector.zones.index(zone) == 0 else None
+    #                 )
 
     def _customize_plots(self, title):
         """Apply common styling to all plots"""
@@ -283,9 +255,9 @@ class PricePlotter:
         self.ax_rsi.grid(True, linestyle='--', alpha=0.7)
         self.ax_rsi.set_ylim(0, 100)
         
-        self.ax_confidence.set_ylabel('Confidence')
-        self.ax_confidence.legend()
-        self.ax_confidence.grid(True, linestyle='--', alpha=0.7)
+        # self.ax_confidence.set_ylabel('Confidence')
+        # self.ax_confidence.legend()
+        # self.ax_confidence.grid(True, linestyle='--', alpha=0.7)
         
         self.ax_ema.set_xlabel('Time (index)')
         self.ax_ema.set_ylabel('EMA')

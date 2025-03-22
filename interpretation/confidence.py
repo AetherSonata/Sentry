@@ -1,123 +1,110 @@
 import numpy as np
 
 class ConfidenceCalculator:
-    def __init__(self, metrics_collector, chart_analyzer, alpha=0.05, threshold=0.1, decay_rate=0.02, slope_window=10):
+    def __init__(self, metrics_collector, alpha=0.05, threshold=0.1, decay_rate=0.02, slope_window=10):
+        """
+        Initialize the ConfidenceCalculator with given parameters.
+
+        Args:
+            metrics_collector: Object with attributes key_zone_1 to key_zone_6 as single dicts.
+            alpha (float): Rate of confidence adjustment based on zone influence (default: 0.05).
+            threshold (float): Proximity threshold for zone influence (default: 0.1).
+            decay_rate (float): Rate of confidence decay over time (default: 0.02).
+            slope_window (int): Number of past confidence values to store for slope (default: 10).
+        """
         self.metrics_collector = metrics_collector
-        self.chart_analyzer = chart_analyzer
-        self.zone_confidence = 0.5
+        self.zone_confidence = 0.0  # Start at 0
         self.alpha = alpha
         self.threshold = threshold
         self.decay_rate = decay_rate
-        self.slope_window = slope_window  # Maximum history to store for slope calculation
-        self.confidence_history = []  # Store history of zone_confidence values
-
-    def calculate_strength(self, zone, current_price, max_touches=10):
-        """Calculate a zone's strength based on touches and proximity (same as ChartAnalyzer._rank_zones)."""
-        touch_strength = zone["touches"] / max_touches
-        proximity = 1 - min(abs(zone["level"] - current_price) / (current_price * 0.5), 1)
-        return 0.7 * touch_strength + 0.3 * proximity
-
-    def score_zone(self, zone, current_price, strength):
-        """Score a zone based on its strength and proximity."""
-        distance_pct = abs(zone["level"] - current_price) / current_price
-        return strength / (1 + distance_pct)
+        self.slope_window = slope_window
+        self.confidence_history = []
 
     def calculate_zone_confidence(self, current_price):
-        # Access all zones from ChartAnalyzer
-        zones = self.chart_analyzer.zones
+        """
+        Calculate confidence based on price proximity to all zones, treating them uniformly.
 
-        # Handle case where zones are empty
+        Args:
+            current_price (float): Current price to evaluate against zones.
+
+        Returns:
+            float: Updated zone confidence value between 0 and 1.
+        """
+        # Define weightings for different zone types
+        weightings = {
+            'short_term': 1,
+            'mid_term': 2,
+            'long_term': 3
+        }
+
+        # Map zone attributes to their types
+        zone_types = {
+            "key_zone_1": "short_term",
+            "key_zone_2": "short_term",
+            "key_zone_3": "mid_term",
+            "key_zone_4": "mid_term",
+            "key_zone_5": "long_term",
+            "key_zone_6": "long_term"
+        }
+
+        # Aggregate all zones from metrics_collector attributes
+        zones = []
+        for key in ["key_zone_1", "key_zone_2", "key_zone_3", "key_zone_4", "key_zone_5", "key_zone_6"]:
+            zone = getattr(self.metrics_collector, key, None)
+            if zone and 'level' in zone:  # Check if zone exists and is valid
+                zone_copy = zone.copy()
+                zone_copy['zone_type'] = zone_types[key]
+                zones.append(zone_copy)
+
         if not zones:
             self.confidence_history.append(self.zone_confidence)
             return self.zone_confidence
 
-        # Split zones into support and resistance
-        support_zones = [z for z in zones if z["level"] < current_price]
-        resistance_zones = [z for z in zones if z["level"] > current_price]
-
-        # Calculate influence from support zones (increases confidence)
-        support_influence = 0.0
-        for zone in support_zones:
+        # Calculate net influence from all zones
+        net_influence = 0.0
+        for zone in zones:
             L = zone["level"]
-            S = self.calculate_strength(zone, current_price)
+            weight = weightings[zone['zone_type']]
             lower_bound = L * (1 - self.threshold)
             upper_bound = L * (1 + self.threshold)
             if lower_bound <= current_price <= upper_bound:
                 proximity = 1 - abs(current_price - L) / (self.threshold * L)
-                scored_strength = self.score_zone(zone, current_price, S)
-                support_influence += scored_strength * proximity
-            # Boost influence if price is just above a major support
-            if zone["is_major"] and current_price > L and current_price <= L * 1.05:
-                proximity = 1 - (current_price - L) / (0.05 * L)
-                support_influence += scored_strength * proximity * 1.5
+                # Increase confidence if above, decrease if below
+                if current_price > L:
+                    net_influence += proximity * weight  # Above: increases confidence
+                elif current_price < L:  # Use elif to avoid double-counting exact matches
+                    net_influence -= proximity * weight  # Below: decreases confidence
 
-        # Calculate influence from resistance zones (decreases confidence)
-        resistance_influence = 0.0
-        for zone in resistance_zones:
-            L = zone["level"]
-            S = self.calculate_strength(zone, current_price)
-            lower_bound = L * (1 - self.threshold)
-            upper_bound = L * (1 + self.threshold)
-            if lower_bound <= current_price <= upper_bound:
-                proximity = 1 - abs(current_price - L) / (self.threshold * L)
-                scored_strength = self.score_zone(zone, current_price, S)
-                resistance_influence += scored_strength * proximity
-            # Stronger penalty if price is just below a major resistance
-            if zone["is_major"] and current_price < L and current_price >= L * 0.95:
-                proximity = 1 - (L - current_price) / (0.05 * L)
-                resistance_influence += scored_strength * proximity * 1.5
-
-        # Net influence: support increases confidence, resistance decreases it
-        net_influence = support_influence - resistance_influence
-
-        # Decay confidence if price is not near any significant zone
+        # Apply decay if price is not near significant zones
         if abs(net_influence) < 0.1:
             self.zone_confidence *= (1 - self.decay_rate)
 
-        # Update confidence
+        # Update confidence, bounded between 0 and 1
         self.zone_confidence = max(min(self.zone_confidence + self.alpha * net_influence, 1.0), 0.0)
 
-        # Store the new confidence value in history
+        # Update confidence history
         self.confidence_history.append(self.zone_confidence)
-        # Keep only the last slope_window values
         if len(self.confidence_history) > self.slope_window:
             self.confidence_history = self.confidence_history[-self.slope_window:]
 
+        print(f"Zone confidence: {self.zone_confidence}")
         return self.zone_confidence
 
     def calculate_confidence_slope(self, lookback=3):
-        """Calculate the slope of zone_confidence as a percentage change over the last lookback intervals.
-
-        Args:
-            lookback (int, optional): Number of past intervals to consider for the slope.
-                                    Defaults to 3.
-
-        Returns:
-            float: Slope as a percentage change, normalized between -1 and 1.
-                1 represents a 100% increase per interval, -1 represents a 100% decrease.
-        """
-        # Ensure lookback is not larger than the history
+        """Calculate the slope of zone_confidence as a percentage change over the last lookback intervals."""
         lookback = min(lookback, len(self.confidence_history))
-
-        if lookback < 2:  # Need at least 2 points to calculate a slope
+        if lookback < 2:
             return 0.0
 
-        # Use the last lookback points
-        y = np.array(self.confidence_history[-lookback:])  # Confidence values
-        x = np.arange(lookback)  # Time indices (0, 1, 2, ..., lookback-1)
-
-        # Calculate percentage change between the first and last points
+        y = np.array(self.confidence_history[-lookback:])
+        x = np.arange(lookback)
         initial_confidence = y[0]
         final_confidence = y[-1]
         
-        if initial_confidence == 0:  # Avoid division by zero
+        if initial_confidence == 0:
             return 0.0 if final_confidence == 0 else (1.0 if final_confidence > 0 else -1.0)
 
-        # Percentage change over the entire period
         pct_change = (final_confidence - initial_confidence) / initial_confidence
-
-        # Normalize to per-interval slope and bound between -1 and 1
-        slope = pct_change / (lookback - 1)  # Divide by number of intervals
-        normalized_slope = max(min(slope, 1.0), -1.0)  # Clamp to [-1, 1]
-
+        slope = pct_change / (lookback - 1)
+        normalized_slope = max(min(slope, 1.0), -1.0)
         return normalized_slope

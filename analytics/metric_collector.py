@@ -16,7 +16,10 @@ class MetricCollector:
         self.chart_analyzer = ChartAnalyzer(interval)
         self.price_analyzer = PriceAnalytics()
         self.fibonacci_analyzer = FibonacciAnalyzer(interval)
-        self.confidence_calculator = ConfidenceCalculator(self, self.chart_analyzer, alpha=0.08, threshold=0.1, decay_rate=0.05)
+        self.confidence_calculator = ConfidenceCalculator(self,  
+                                                          alpha=0.08, 
+                                                          threshold=0.1, 
+                                                          decay_rate=0.05)
         self.zone_analyzer = ZoneAnalyzer(self)
 
         self.support_zones = []
@@ -29,6 +32,8 @@ class MetricCollector:
         self.key_zone_2 = []
         self.key_zone_3 = []
         self.key_zone_4 = []
+        self.key_zone_5 = []
+        self.key_zone_6 = []
 
     def add_new_price_point_and_calculate_metrics(self, new_price_point):
         self.price_data.append(new_price_point)
@@ -41,23 +46,35 @@ class MetricCollector:
 
     def collect_all_metrics_for_current_point(self, i):
         current_price = self.price_data[-1]["value"]
+
+        # Calculate window sizes
+        quarter_window = max(100, len(self.price_data) // 4)  # Short-term
+        half_window = max(100, len(self.price_data) // 2)     # Mid-term
+        three_quarters_window = max(200, len(self.price_data) // 4 * 3)  # Mid-term
+        full_window = max(200, len(self.price_data))          # Long-term
+        #4/5th of the data
+        four_fifth_window = max(200, len(self.price_data) // 5 * 4)  # Mid-term
+
         
-        self.key_zone_1, self.key_zone_2 = self.zone_analyzer.get_zones(
-            strong_distance=60, 
-            strong_prominence=20, 
-            peak_distance=10, 
-            peak_rank_width=5, 
-            min_pivot_rank=3, 
-            window=100
+
+        # Short-term zones (intraday, quick moves)
+        self.key_zone_1, self.key_zone_2 = self.zone_analyzer.get_dynamic_zones(
+            window=quarter_window,
+            zone_type="short_term"
         )
-        self.key_zone_3, self.key_zone_4 = self.zone_analyzer.get_zones(
-            strong_distance=30, 
-            strong_prominence=200, 
-            peak_distance=50, 
-            peak_rank_width=20, 
-            min_pivot_rank=35, 
-            window=100
+
+        # Mid-term zones (balanced intraday and swing)
+        self.key_zone_3, self.key_zone_4 = self.zone_analyzer.get_dynamic_zones(
+            window=half_window,
+            zone_type="mid_term"
         )
+
+        # Long-term zones (swing, significant moves)
+        self.key_zone_5, self.key_zone_6 = self.zone_analyzer.get_dynamic_zones(
+            window=four_fifth_window,
+            zone_type="long_term"
+        )
+
 
         # self.zones = (self.chart_analyzer.find_key_zones(
         #     current_step=i,
@@ -169,8 +186,8 @@ class MetricCollector:
         divergence_strength = divergence["divergence_strength"] if divergence else 0.0
 
         # Calculate zone confidence
-        zone_confidence = self.confidence_calculator.calculate_zone_confidence(current_price)
-        zone_confidence_slope = self.confidence_calculator.calculate_confidence_slope()
+        # zone_confidence = self.confidence_calculator.calculate_zone_confidence(current_price)
+        # zone_confidence_slope = self.confidence_calculator.calculate_confidence_slope()
         # print(f"Zone confidence: {zone_confidence}, slope: {zone_confidence_slope}")
         
         # Build and return metrics dict
@@ -203,29 +220,19 @@ class MetricCollector:
                 "signal": divergence_signal,
                 "strength": divergence_strength,
             },
-            # "support_level_1_dist": support_zones_normalized["level_1_dist"],
-            # "support_level_1_strength": support_zones_normalized["level_1_strength"],
-            # "support_level_2_dist": support_zones_normalized["level_2_dist"],
-            # "support_level_2_strength": support_zones_normalized["level_2_strength"],
-            # "support_level_3_dist": support_zones_normalized["level_3_dist"],
-            # "support_level_3_strength": support_zones_normalized["level_3_strength"],
-            # "major_support_level_1_dist": major_support_zones_normalized["level_1_dist"],
-            # "major_support_level_1_strength": major_support_zones_normalized["level_1_strength"],
-            # "resistance_level_1_dist": resistance_zones_normalized["level_1_dist"],
-            # "resistance_level_1_strength": resistance_zones_normalized["level_1_strength"],
-            # "resistance_level_2_dist": resistance_zones_normalized["level_2_dist"],
-            # "resistance_level_2_strength": resistance_zones_normalized["level_2_strength"],
-            # "resistance_level_3_dist": resistance_zones_normalized["level_3_dist"],
-            # "resistance_level_3_strength": resistance_zones_normalized["level_3_strength"],
-            # "major_resistance_level_1_dist": major_resistance_zones_normalized["level_1_dist"],
-            # "major_resistance_level_1_strength": major_resistance_zones_normalized["level_1_strength"],
+            "key_zone_1": self.key_zone_1,
+            "key_zone_2": self.key_zone_2,
+            "key_zone_3": self.key_zone_3,
+            "key_zone_4": self.key_zone_4,
+            "key_zone_5": self.key_zone_5,
+            "key_zone_6": self.key_zone_6,
             "token_age": calculate_token_age(self.price_data) / 1440,
             "peak_distance": self.chart_analyzer.calculate_peak_distance(),
             "drawdown_tight": self.chart_analyzer.calculate_drawdown(3, 288)["short"],
             "drawdown_short": self.chart_analyzer.calculate_drawdown(12, 288)["short"],
             "drawdown_long": self.chart_analyzer.calculate_drawdown(12, 288)["long"],
-            # "zone_confidence": zone_confidence, 
-            # "zone_confidence_slope": zone_confidence_slope,      
+            "zone_confidence": self.confidence_calculator.calculate_zone_confidence(current_price),
+            "zone_confidence_slope": self.confidence_calculator.calculate_confidence_slope(),      
             "time": {
                 "minute_of_day": time_features["minute_of_day"],
                 "day_of_week": time_features["day_of_week"],
