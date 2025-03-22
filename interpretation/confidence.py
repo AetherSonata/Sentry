@@ -87,7 +87,7 @@ class ConfidenceCalculator:
         if len(self.confidence_history) > self.slope_window:
             self.confidence_history = self.confidence_history[-self.slope_window:]
 
-        print(f"Zone confidence: {self.zone_confidence}")
+        # print(f"Zone confidence: {self.zone_confidence}")
         return self.zone_confidence
 
     def calculate_confidence_slope(self, lookback=3):

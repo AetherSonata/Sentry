@@ -64,7 +64,7 @@ if __name__ == "__main__":
     #initialize starting metrics for the token
     starting_index = random.randint(10, 150)
     starting_index = 0
-    end_index = 600
+    end_index = 1600
 
     print(f"Starting index: {starting_index}")  
     print(f"End index: {end_index}")  
@@ -81,7 +81,7 @@ if __name__ == "__main__":
         len(historical_data["data"]["items"]))):     
         tradingEngine.add_new_price_point(historical_data["data"]["items"][i]) # Simulate real-time data feed
 
-        # plotter.plot_live()
+        plotter.plot_live()
 
 
 print(f"analyzed {(len(tradingEngine.metric_collector.metrics)*get_interval_in_minutes(REFRESH_INTERVAL)) / 60} hours of data")

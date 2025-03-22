@@ -76,62 +76,6 @@ class MetricCollector:
         )
 
 
-        # self.zones = (self.chart_analyzer.find_key_zones(
-        #     current_step=i,
-        #     max_zones=50,  # Large number to get all relevant zones; filtering happens below
-        #     volatility_window=20,
-        #     filter_percentage_minor=75.0,  # Tight window for minor zones
-        #     filter_percentage_major=150.0,  # Wide window for major zones
-        #     decay_period=70     # 8 hours
-        # ))
-        
-
-        # print(f"Support zones: {self.support_zones}")
-        # print(f"Resistance zones: {self.resistance_zones}")
-
-
-
-
-
-
-
-
-
-
-        # zones = self.chart_analyzer.find_key_zones(
-        #     current_step=i,
-        #     max_zones=50,  # Large number to get all relevant zones; filtering happens below
-        #     volatility_window=20,
-        #     filter_percentage_minor=75.0,  # Tight window for minor zones
-        #     filter_percentage_major=150.0,  # Wide window for major zones
-        #     decay_period=70     # 8 hours
-        # )
-        
-        # # Split zones based on current price and type
-        # support_zones_raw = [zone for zone in zones if zone["zone_level"] < current_price]
-        # resistance_zones_raw = [zone for zone in zones if zone["zone_level"] > current_price]
-        # major_support_zones_raw = [zone for zone in support_zones_raw if zone["is_major"]]
-        # major_resistance_zones_raw = [zone for zone in resistance_zones_raw if zone["is_major"]]
-
-        # # Scoring function combining strength and proximity
-        # def score_zone(zone, current_price):
-        #     distance_pct = abs(zone["zone_level"] - current_price) / current_price
-        #     return zone["strength"] / (1 + distance_pct)
-        
-        # # Select top 3 support and resistance zones (all types) by score
-        # self.support_zones = sorted(support_zones_raw, key=lambda x: score_zone(x, current_price), reverse=True)[:3]
-        # self.resistance_zones = sorted(resistance_zones_raw, key=lambda x: score_zone(x, current_price), reverse=True)[:3]
-
-        # # Select top 1 major support and resistance zones (for simplicity, can increase if needed)
-        # major_support_zones = sorted(major_support_zones_raw, key=lambda x: score_zone(x, current_price), reverse=True)[:1]
-        # major_resistance_zones = sorted(major_resistance_zones_raw, key=lambda x: score_zone(x, current_price), reverse=True)[:1]
-
-        # # Normalize all sets
-        # support_zones_normalized = normalize_zones(self.support_zones, current_price=current_price, max_zones=3, include_major_flag=True)
-        # resistance_zones_normalized = normalize_zones(self.resistance_zones, current_price=current_price, max_zones=3, include_major_flag=True)
-        # major_support_zones_normalized = normalize_zones(major_support_zones, current_price=current_price, max_zones=1, include_major_flag=True)
-        # major_resistance_zones_normalized = normalize_zones(major_resistance_zones, current_price=current_price, max_zones=1, include_major_flag=True)
-        
         time_features = get_time_features(self.price_data[-1]["unixTime"])  # Corrected to use last price data point
 
         # Pre-compute dependent values
@@ -185,11 +129,7 @@ class MetricCollector:
         divergence_signal = divergence["divergence_signal"] if divergence else None
         divergence_strength = divergence["divergence_strength"] if divergence else 0.0
 
-        # Calculate zone confidence
-        # zone_confidence = self.confidence_calculator.calculate_zone_confidence(current_price)
-        # zone_confidence_slope = self.confidence_calculator.calculate_confidence_slope()
-        # print(f"Zone confidence: {zone_confidence}, slope: {zone_confidence_slope}")
-        
+
         # Build and return metrics dict
         return {
             "price": current_price,
