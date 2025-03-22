@@ -9,57 +9,47 @@ class ZoneParameters:
     threshold: float = 0.2  # Proximity threshold
     decay_rate: float = 0.02  # Decay rate when not near zones
 
-
-# USAGE INFO::
-
-# # Access the settings helper
-# settings = confidence_calculator.settings
-
-# # Customize parameters for specific zones
-# settings.set_zone_alpha("key_zone_1", 0.1)        # Faster adjustment for short-term support
-# settings.set_zone_threshold("key_zone_2", 0.3)    # Wider range for short-term resistance
-# settings.set_zone_decay_rate("key_zone_5", 0.01)  # Slower decay for long-term support
-
 class ZoneSettings:
     """Helper class to manage settings for each unique zone."""
     def __init__(self, default_alpha=0.05, default_threshold=0.2, default_decay_rate=0.02):
-        # Default global parameters
         self.default_params = ZoneParameters(
             alpha=default_alpha,
             threshold=default_threshold,
             decay_rate=default_decay_rate
         )
-        # Zone-specific settings (overrides defaults if set)
         self.zone_settings: Dict[str, ZoneParameters] = {}
-        # Valid zone keys
         self.valid_zones = ["key_zone_1", "key_zone_2", "key_zone_3", "key_zone_4", "key_zone_5", "key_zone_6"]
 
-    def set_zone_alpha(self, zone_key: str, alpha: float):
-        """Set alpha for a specific zone."""
-        if zone_key not in self.valid_zones:
-            raise ValueError(f"Invalid zone key: {zone_key}. Must be one of {self.valid_zones}")
-        if zone_key not in self.zone_settings:
-            self.zone_settings[zone_key] = ZoneParameters()
-        self.zone_settings[zone_key].alpha = alpha
+    def set_parameters(self, zone_key: str, alpha: Optional[float] = None, threshold: Optional[float] = None, decay_rate: Optional[float] = None):
+        """
+        Set parameters for a specific zone.
 
-    def set_zone_threshold(self, zone_key: str, threshold: float):
-        """Set threshold for a specific zone."""
+        Args:
+            zone_key (str): The zone identifier (e.g., 'key_zone_5').
+            alpha (float, optional): Rate of confidence adjustment. Defaults to None (no change).
+            threshold (float, optional): Proximity threshold. Defaults to None (no change).
+            decay_rate (float, optional): Decay rate when not near zones. Defaults to None (no change).
+        """
         if zone_key not in self.valid_zones:
             raise ValueError(f"Invalid zone key: {zone_key}. Must be one of {self.valid_zones}")
+        
+        # If no settings exist for this zone, initialize with defaults
         if zone_key not in self.zone_settings:
-            self.zone_settings[zone_key] = ZoneParameters()
-        self.zone_settings[zone_key].threshold = threshold
-
-    def set_zone_decay_rate(self, zone_key: str, decay_rate: float):
-        """Set decay rate for a specific zone."""
-        if zone_key not in self.valid_zones:
-            raise ValueError(f"Invalid zone key: {zone_key}. Must be one of {self.valid_zones}")
-        if zone_key not in self.zone_settings:
-            self.zone_settings[zone_key] = ZoneParameters()
-        self.zone_settings[zone_key].decay_rate = decay_rate
+            self.zone_settings[zone_key] = ZoneParameters(
+                alpha=self.default_params.alpha,
+                threshold=self.default_params.threshold,
+                decay_rate=self.default_params.decay_rate
+            )
+        
+        # Update only the parameters provided
+        if alpha is not None:
+            self.zone_settings[zone_key].alpha = alpha
+        if threshold is not None:
+            self.zone_settings[zone_key].threshold = threshold
+        if decay_rate is not None:
+            self.zone_settings[zone_key].decay_rate = decay_rate
 
     def get_parameters(self, zone_key: str) -> ZoneParameters:
-        """Get parameters for a zone key, falling back to defaults."""
         return self.zone_settings.get(zone_key, self.default_params)
 
 class ConfidenceCalculator:
@@ -68,7 +58,7 @@ class ConfidenceCalculator:
         Initialize the ConfidenceCalculator with given parameters.
 
         Args:
-            metrics_collector: Object with attributes key_zone_1 to key_zone_6 as single dicts.
+            metrics_collector: Object with attributes key_zone_1 to key_zone_6 as single dicts and metrics list.
             alpha (float): Default rate of confidence adjustment (default: 0.05).
             threshold (float): Default proximity threshold (default: 0.2).
             decay_rate (float): Default decay rate (default: 0.02).
@@ -78,7 +68,6 @@ class ConfidenceCalculator:
         self.zone_confidence = 0.0
         self.slope_window = slope_window
         self.confidence_history = []
-        # Initialize settings with global defaults
         self.settings = ZoneSettings(
             default_alpha=alpha,
             default_threshold=threshold,
@@ -87,7 +76,7 @@ class ConfidenceCalculator:
 
     def calculate_zone_confidence(self, current_price):
         """
-        Calculate confidence based on price proximity to all zones, with per-zone settings.
+        Calculate confidence based on price proximity to zones, preventing increase if zone level drops.
 
         Args:
             current_price (float): Current price to evaluate against zones.
@@ -95,7 +84,6 @@ class ConfidenceCalculator:
         Returns:
             float: Updated zone confidence value between 0 and 1.
         """
-        # Aggregate all zones from metrics_collector attributes
         zones = []
         for key in ["key_zone_1", "key_zone_2", "key_zone_3", "key_zone_4", "key_zone_5", "key_zone_6"]:
             zone = getattr(self.metrics_collector, key, None)
@@ -105,53 +93,43 @@ class ConfidenceCalculator:
                 zones.append(zone_copy)
 
         if not zones:
-            # Use the default decay rate if no zones are present
             self.zone_confidence *= (1 - self.settings.default_params.decay_rate)
             self.confidence_history.append(self.zone_confidence)
             return self.zone_confidence
 
-        # Calculate net influence from all zones
+        previous_metrics = self.metrics_collector.metrics[-1] if self.metrics_collector.metrics else {}
+        
         net_influence = 0.0
-        max_decay_rate = 0.0  # Track the highest decay rate among influencing zones
+        max_decay_rate = 0.0
         for zone in zones:
             L = zone["level"]
-            params = self.settings.get_parameters(zone['zone_key'])
+            key = zone['zone_key']
+            params = self.settings.get_parameters(key)
             alpha = params.alpha
             threshold = params.threshold
             decay_rate = params.decay_rate
+            
+            prev_zone = previous_metrics.get(key, {})
+            prev_level = prev_zone.get('level') if prev_zone else None
+            zone_dropped = prev_level is not None and L < prev_level
+            
             lower_bound = L * (1 - threshold)
             upper_bound = L * (1 + threshold)
             if lower_bound <= current_price <= upper_bound:
                 proximity = 1 - abs(current_price - L) / (threshold * L)
-                if current_price > L:
-                    net_influence += proximity  # Base influence
+                if current_price > L and not zone_dropped:
+                    net_influence += proximity * alpha
                 elif current_price < L:
-                    net_influence -= proximity
-                max_decay_rate = max(max_decay_rate, decay_rate)  # Update max decay rate
+                    net_influence -= proximity * alpha
+                max_decay_rate = max(max_decay_rate, decay_rate)
 
-        # Apply decay if price is not near significant zones
         if abs(net_influence) < 0.1:
-            # Use the highest decay rate among zones that influenced the calculation
-            self.zone_confidence *= (1 - (max_decay_rate or self.settings.default_params.decay_rate))
+            decay = max_decay_rate or self.settings.default_params.decay_rate
+            self.zone_confidence *= (1 - decay)
 
-        # Update confidence with per-zone alpha applied to the net influence
-        self.zone_confidence = max(min(self.zone_confidence + self.settings.default_params.alpha * net_influence, 1.0), 0.0)
-        for zone in zones:
-            params = self.settings.get_parameters(zone['zone_key'])
-            alpha = params.alpha
-            threshold = params.threshold
-            L = zone["level"]
-            lower_bound = L * (1 - threshold)
-            upper_bound = L * (1 + threshold)
-            if lower_bound <= current_price <= upper_bound:
-                proximity = 1 - abs(current_price - L) / (threshold * L)
-                if current_price > L:
-                    self.zone_confidence += alpha * proximity
-                elif current_price < L:
-                    self.zone_confidence -= alpha * proximity
-            self.zone_confidence = max(min(self.zone_confidence, 1.0), 0.0)
+        old_confidence = self.zone_confidence
+        self.zone_confidence = max(min(self.zone_confidence + net_influence, 1.0), 0.0)
 
-        # Update confidence history
         self.confidence_history.append(self.zone_confidence)
         if len(self.confidence_history) > self.slope_window:
             self.confidence_history = self.confidence_history[-self.slope_window:]

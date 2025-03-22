@@ -69,7 +69,7 @@ class ZoneAnalyzer:
             "mid_term": ZoneConfig(
                 k_strong_distance=0.1,
                 k_prominence=0.1,
-                k_peak_distance=0.22,
+                k_peak_distance=0.20,
                 k_width=0.1,
                 k_pivot=0.015
             ),

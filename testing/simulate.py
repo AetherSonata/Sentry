@@ -69,7 +69,6 @@ if __name__ == "__main__":
     print(f"Starting index: {starting_index}")  
     print(f"End index: {end_index}")  
 
-
     
     tradingEngine = TradingEngine(REFRESH_INTERVAL, historical_data["data"]["items"][: starting_index])   
 
@@ -81,21 +80,23 @@ if __name__ == "__main__":
         len(historical_data["data"]["items"]))):     
         tradingEngine.add_new_price_point(historical_data["data"]["items"][i]) # Simulate real-time data feed
 
-        plotter.plot_live()
+        # plotter.plot_live()
 
 
 print(f"analyzed {(len(tradingEngine.metric_collector.metrics)*get_interval_in_minutes(REFRESH_INTERVAL)) / 60} hours of data")
 print(f"equal to {(len(tradingEngine.metric_collector.metrics)*get_interval_in_minutes(REFRESH_INTERVAL)) / 60 / 24} days of data")
 # finding specific buy opportunities in the data
 pointFinder = PointFinder(tradingEngine.metric_collector.metrics)
-targets = pointFinder.find_significant_price_increases(price_increase=1.5)
-plotter.add_backtesting_points(targets , [])
+# targets = pointFinder.find_significant_price_increases(price_increase=1.5)
+pointFinder.evaluate_zone_settings(price_increase=1.5, price_decrease=0.5)
+targets = pointFinder.find_all_significant_price_increases(price_increase=1.5)
+similars_index = pointFinder.find_all_significant_price_decreases(price_decrease=0.5)
+# targets = pointFinder.find_significant_price_increases()
+plotter.add_backtesting_points(targets , similars_index)
 plotter.plot_static()
 
 # print(pointFinder.get_indexed_metrics(targets, lower_bound=400))
 
-
-        
 # save_metrics_to_csv(token_metrics, filename=f"{TRAINING_DATA_PATH}token_metrics_{REFRESH_INTERVAL}.csv")
 
 

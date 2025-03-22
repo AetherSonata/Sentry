@@ -158,3 +158,123 @@ class PointFinder:
                 i = ath_idx + 1  # Move past the ATH if no valid recovery
 
         return retracement_indices
+
+
+    def find_all_significant_price_increases(self, price_increase):
+            """
+            Analyzes self.metrics to find all indices where price increases by at least 'price_increase' times
+            without dropping below the initial price afterward.
+
+            Args:
+                price_increase (float): Minimum factor by which price must increase (e.g., 2.0 for 2x).
+
+            Returns:
+                list: List of indices in self.metrics where the condition is met.
+            """
+            targets = []
+            n = len(self.metrics)
+
+            for i in range(n):
+                initial_price = self.metrics[i]["price"]
+                if initial_price <= 0:
+                    continue
+
+                target_price = initial_price * price_increase
+                qualifies = False
+                max_price_seen = initial_price
+
+                for j in range(i + 1, n):
+                    current_price = self.metrics[j]["price"]
+                    max_price_seen = max(max_price_seen, current_price)
+                    if current_price < initial_price:
+                        break
+                    if max_price_seen >= target_price:
+                        qualifies = True
+                        break
+
+                if qualifies:
+                    targets.append(i)
+
+            return targets
+
+    def find_all_significant_price_decreases(self, price_decrease):
+        """
+        Analyzes self.metrics to find all indices where price decreases by at least 'price_decrease' times
+        without rising above the initial price afterward.
+
+        Args:
+            price_decrease (float): Minimum factor by which price must decrease (e.g., 0.5 for halving).
+
+        Returns:
+            list: List of indices in self.metrics where the condition is met.
+        """
+        targets = []
+        n = len(self.metrics)
+
+        for i in range(n):
+            initial_price = self.metrics[i]["price"]
+            if initial_price <= 0:
+                continue
+
+            target_price = initial_price * price_decrease
+            qualifies = False
+            min_price_seen = initial_price
+
+            for j in range(i + 1, n):
+                current_price = self.metrics[j]["price"]
+                min_price_seen = min(min_price_seen, current_price)
+                if current_price > initial_price:
+                    break
+                if min_price_seen <= target_price:
+                    qualifies = True
+                    break
+
+            if qualifies:
+                targets.append(i)
+
+        return targets
+
+    def evaluate_zone_settings(self, price_increase, price_decrease):
+        """
+        Evaluates zone settings by comparing confidence sums from significant price increases and decreases.
+
+        Args:
+            price_increase (float): Factor for significant price increases (e.g., 2.0 for 2x).
+            price_decrease (float): Factor for significant price decreases (e.g., 0.5 for halving).
+
+        Returns:
+            tuple: (difference, num_increase_points, num_decrease_points)
+        """
+        increase_indices = self.find_all_significant_price_increases(price_increase)
+        decrease_indices = self.find_all_significant_price_decreases(price_decrease)
+
+        sum_increase_confidence = sum(self.metrics[i]["zone_confidence"] for i in increase_indices)
+        sum_decrease_confidence = sum(self.metrics[i]["zone_confidence"] for i in decrease_indices)
+
+        difference = sum_increase_confidence - sum_decrease_confidence
+        num_increase_points = len(increase_indices)
+        num_decrease_points = len(decrease_indices)
+
+        print(f"Sum of confidence from increase points: {sum_increase_confidence:.2f}")
+        print(f"Sum of confidence from decrease points: {sum_decrease_confidence:.2f}")
+        print(f"Difference (increase - decrease): {difference:.2f}")
+        print(f"Number of increase points: {num_increase_points}")
+        print(f"Number of decrease points: {num_decrease_points}")
+
+        return difference, num_increase_points, num_decrease_points
+
+    def get_indexed_metrics(self, indexes, lower_bound=0, offset=0):
+        """
+        Retrieve metrics at specified indexes shifted by an offset, 
+        filtering based on a lower bound and the metrics list bounds.
+
+        Args:
+            indexes (list): List of integer indexes to retrieve metrics from.
+            lower_bound (int, optional): Lower bound (exclusive) for filtering shifted indexes. Defaults to 0.
+            offset (int, optional): Value to add to each index. Defaults to 0.
+
+        Returns:
+            list: List of metrics at the valid shifted indexes.
+        """
+        valid_indexes = [idx + offset for idx in indexes if idx + offset > lower_bound and idx + offset < len(self.metrics)]
+        return [self.metrics[idx] for idx in valid_indexes]

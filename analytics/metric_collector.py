@@ -20,14 +20,10 @@ class MetricCollector:
                                                           alpha=0.08, 
                                                           threshold=0.1, 
                                                           decay_rate=0.05)
+        self.confidence_settings = self.confidence_calculator
         self.zone_analyzer = ZoneAnalyzer(self)
 
-        self.support_zones = []
-        self.resistance_zones = []
         self.metrics = []
-
-        self.zones=[]
-
         self.key_zone_1 = []
         self.key_zone_2 = []
         self.key_zone_3 = []
@@ -48,14 +44,13 @@ class MetricCollector:
         current_price = self.price_data[-1]["value"]
 
         # Calculate window sizes
-        quarter_window = max(100, len(self.price_data) // 4)  # Short-term
+        quarter_window = max(50, len(self.price_data) // 4)  # Short-term
         half_window = max(100, len(self.price_data) // 2)     # Mid-term
         three_quarters_window = max(200, len(self.price_data) // 4 * 3)  # Mid-term
         full_window = max(200, len(self.price_data))          # Long-term
         #4/5th of the data
         four_fifth_window = max(200, len(self.price_data) // 5 * 4)  # Mid-term
 
-        
 
         # Short-term zones (intraday, quick moves)
         self.key_zone_1, self.key_zone_2 = self.zone_analyzer.get_dynamic_zones(
@@ -73,6 +68,10 @@ class MetricCollector:
         self.key_zone_5, self.key_zone_6 = self.zone_analyzer.get_dynamic_zones(
             window=four_fifth_window,
             zone_type="long_term"
+        )
+
+        self.confidence_calculator.settings.set_parameters(                
+            "key_zone_5", alpha=0.1, threshold=0.25, decay_rate=0.08     # Brown Zone 5 tweaks "STRONG SUPPORT"
         )
 
 
