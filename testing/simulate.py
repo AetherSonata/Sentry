@@ -10,14 +10,14 @@ import random
 ADRESSES_TO_FETCH = [ 
                     #   "CniPCE4b3s8gSUPhUiyMjXnytrEqUrMfSsnbBjLCpump",
                     #   "AQiE2ghyFbBsbsfHiTEbKWcCLTDgyGzceKEPWftZpump"
-                    #   "FWAr6oWa6CHg6WUcXu8CqkmsdbhtEqL8t31QTonppump",
-                      "FtUEW73K6vEYHfbkfpdBZfWpxgQar2HipGdbutEhpump",
-                    #   "EF3Ln1DkUB5azvqcaCJgG3RR2qSUJEXxLo1q4ZHzpump",
+                    #   "FWAr6oWa6CHg6WUcXu8CqkmsdbhtEqL8t31QTonppump",         # Bullish scenario
+                    #   "FtUEW73K6vEYHfbkfpdBZfWpxgQar2HipGdbutEhpump",
+                    #   "EF3Ln1DkUB5azvqcaCJgG3RR2qSUJEXxLo1q4ZHzpump",           # Long Term scenario
                     #   "GYTd9XbZTfwicCV28LGkwiDF4DgpXTTAi2UeCajfpump",
                     #   "hV7MQkCpjvuTTnPJXPhPXzvmtMxk8A8ct1KPiRMpump",
                     #   "UL1jwqh3ARmdNTE5qUQyaXHDcrAZ988GZ6tp21Epump",
                     #   "5e41GfrQwTP74LgGt6WP9kw6xa1jQhAERCjnFKf74y52",
-                    #   "FS4xcBxLJbrrdXE1R6zHvKw8no4zrQn2rRFuczvepump",
+                      "FS4xcBxLJbrrdXE1R6zHvKw8no4zrQn2rRFuczvepump",
                     #   "9YnfbEaXPaPmoXnKZFmNH8hzcLyjbRf56MQP7oqGpump",
                     #   "2yFiCwdLiUfxq9PcNXQvu16QdgBFniCJP8P8gEXNpump",
                     #   "H4phNbsqjV5rqk8u6FUACTLB6rNZRTAPGnBb8KXJpump",
@@ -63,8 +63,8 @@ if __name__ == "__main__":
     #initialize data collector with simulated historical data for each token (historical + 1 live data point)
     #initialize starting metrics for the token
     starting_index = random.randint(10, 150)
-    starting_index = 0
-    end_index = 1600
+    starting_index = 50
+    end_index = None
 
     print(f"Starting index: {starting_index}")  
     print(f"End index: {end_index}")  

@@ -64,21 +64,21 @@ class ZoneAnalyzer:
                 k_prominence=0.05,
                 k_peak_distance=0.1,
                 k_width=0.1,
-                k_pivot=0.005
+                k_pivot=0.01
             ),
             "mid_term": ZoneConfig(
                 k_strong_distance=0.1,
                 k_prominence=0.1,
-                k_peak_distance=0.20,
+                k_peak_distance=0.2,
                 k_width=0.1,
-                k_pivot=0.015
+                k_pivot=0.0125
             ),
             "long_term": ZoneConfig(
                 k_strong_distance=1,
                 k_prominence=0.1,
-                k_peak_distance=0.25,
+                k_peak_distance=0.2,
                 k_width=0.1,
-                k_pivot=0.02
+                k_pivot=0.015
             )
         }
 

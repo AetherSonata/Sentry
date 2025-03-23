@@ -45,7 +45,7 @@ class MetricCollector:
 
         # Calculate window sizes
         quarter_window = max(50, len(self.price_data) // 4)  # Short-term
-        half_window = max(100, len(self.price_data) // 2)     # Mid-term
+        half_window = max(50, len(self.price_data) // 2)     # Mid-term
         three_quarters_window = max(200, len(self.price_data) // 4 * 3)  # Mid-term
         full_window = max(200, len(self.price_data))          # Long-term
         #4/5th of the data
@@ -70,8 +70,16 @@ class MetricCollector:
             zone_type="long_term"
         )
 
+        # self.confidence_calculator.settings.set_parameters(                
+        #     "key_zone_1", alpha=0.25, threshold=0.11, decay_rate=0.15     # Green Zone 1 tweaks "SHORT TERM SUPPORT"
+        # )
+
         self.confidence_calculator.settings.set_parameters(                
-            "key_zone_5", alpha=0.1, threshold=0.25, decay_rate=0.08     # Brown Zone 5 tweaks "STRONG SUPPORT"
+            "key_zone_2", alpha=0.2, threshold=0.15, decay_rate=0.15     # Red Zone 2 tweaks "SHORT TERM WEAK RESISTANCE"
+        )
+
+        self.confidence_calculator.settings.set_parameters(                
+            "key_zone_5", alpha=0.15, threshold=0.30, decay_rate=0.08     # Brown Zone 5 tweaks "STRONG SUPPORT"
         )
 
 
