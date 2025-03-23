@@ -177,7 +177,8 @@ class IndicatorAnalyzer:
                 crossovers[orig_idx] = 0  # Bearish crossover
 
             return crossovers
-    def analyze_rsi_divergence(self, latest_rsi, rsi_key=["rsi", "short"], lookback=30):
+
+    def analyze_rsi_divergence(self, latest_rsi, rsi_key=["rsi", "short"], lookback=30, peak_distance=5):
         """
         Analyzes RSI divergence based on past metrics and latest RSI value.
 
@@ -185,6 +186,7 @@ class IndicatorAnalyzer:
             latest_rsi (float): The current RSI value to append.
             rsi_key (list): Nested key for RSI in metrics (e.g., ["rsi", "middle_short"]).
             lookback (int): Number of past periods to analyze (default: 30).
+            peak_distance (int): Minimum distance between peaks/troughs for detection (default: 5).
 
         Returns:
             float: Divergence strength between -1 (bearish) and 1 (bullish), 0 if no divergence.
@@ -210,23 +212,27 @@ class IndicatorAnalyzer:
         if rsi_array is None:
             return 0.0
 
-        # Find peaks and troughs
-        price_highs_idx, _ = find_peaks(price_array, distance=2)
-        price_lows_idx, _ = find_peaks(-price_array, distance=2)
-        rsi_highs_idx, _ = find_peaks(rsi_array, distance=2)
-        rsi_lows_idx, _ = find_peaks(-rsi_array, distance=2)
+        # Calculate ranges for normalization
+        price_range = np.max(price_array) - np.min(price_array) if len(price_array) > 1 else 1.0
+        rsi_range = np.max(rsi_array) - np.min(rsi_array) if len(rsi_array) > 1 else 1.0
+
+        # Find peaks and troughs with configurable peak_distance
+        price_highs_idx, _ = find_peaks(price_array, distance=peak_distance)
+        price_lows_idx, _ = find_peaks(-price_array, distance=peak_distance)
+        rsi_highs_idx, _ = find_peaks(rsi_array, distance=peak_distance)
+        rsi_lows_idx, _ = find_peaks(-rsi_array, distance=peak_distance)
 
         # Check if enough points for divergence
         if len(price_highs_idx) < 2 or len(price_lows_idx) < 2 or len(rsi_highs_idx) < 2 or len(rsi_lows_idx) < 2:
             return 0.0
 
         # Strength calculation
-        def calc_strength(price1, price2, rsi1, rsi2):
-            price_diff = abs(price1 - price2) / min(price1, price2)  # Relative price change
-            rsi_diff = abs(rsi1 - rsi2) / 100.0  # Normalize RSI diff (RSI ranges 0-100)
-            # Strength is the ratio of RSI change to price change, scaled to 0-1
-            strength = min(1.0, rsi_diff / (price_diff + 1e-6))
-            return strength
+        def calc_strength(price1, price2, rsi1, rsi2, price_range, rsi_range):
+            price_diff = abs(price1 - price2) / price_range
+            rsi_diff = abs(rsi1 - rsi2) / rsi_range
+            raw_strength = rsi_diff / (price_diff + 1e-6)  # Divergence ratio
+            strength = 2 / (1 + np.exp(-raw_strength)) - 1  # Sigmoid scaling to -1 to 1
+            return min(1.0, max(-1.0, strength))
 
         # Initialize strength
         strength = 0.0
@@ -240,9 +246,9 @@ class IndicatorAnalyzer:
             rsi_low1, rsi_low2 = rsi_array[r_idx1], rsi_array[r_idx2]
 
             if price_low1 > price_low2 and rsi_low1 < rsi_low2:
-                strength = calc_strength(price_low1, price_low2, rsi_low1, rsi_low2)
+                strength = calc_strength(price_low1, price_low2, rsi_low1, rsi_low2, price_range, rsi_range)
                 if rsi_low2 < 30:  # Boost in oversold region
-                    strength = min(1.0, strength + (1.0 - strength) * 0.5)  # Additive boost
+                    strength = min(1.0, strength + (1.0 - strength) * 0.5)
 
         # Bearish divergence: Higher price highs, lower RSI highs
         if len(price_highs_idx) >= 2 and len(rsi_highs_idx) >= 2:
@@ -253,11 +259,56 @@ class IndicatorAnalyzer:
             rsi_high1, rsi_high2 = rsi_array[r_idx1], rsi_array[r_idx2]
 
             if price_high1 < price_high2 and rsi_high1 > rsi_high2:
-                strength = -calc_strength(price_high1, price_high2, rsi_high1, rsi_high2)
+                strength = -calc_strength(price_high1, price_high2, rsi_high1, rsi_high2, price_range, rsi_range)
                 if rsi_high2 > 70:  # Boost in overbought region
-                    strength = max(-1.0, strength - (1.0 + strength) * 0.5)  # Additive boost
+                    strength = max(-1.0, strength - (1.0 + strength) * 0.5)
 
         return strength
+    
+    def analyze_rsi_crossovers(self, latest_rsi_short, latest_rsi_long, short_key=["rsi", "short"], long_key=["rsi", "long"], lookback=5):
+        """
+        Analyzes RSI crossovers between short and long RSI values.
+
+        Args:
+            latest_rsi_short (float): Latest value of the short-period RSI.
+            latest_rsi_long (float): Latest value of the long-period RSI.
+            short_key (list): Nested key for short RSI in metrics (e.g., ["rsi", "short"]).
+            long_key (list): Nested key for long RSI in metrics (e.g., ["rsi", "long"]).
+            lookback (int): Number of past periods to check for crossover (default: 5).
+
+        Returns:
+            int: 1 (bullish crossover), -1 (bearish crossover), 0 (no crossover).
+        """
+        # Need at least 2 points (current and previous) to detect a crossover
+        if not self.metrics or len(self.metrics) < 1:
+            return 0
+
+        # Extract lookback period from metrics
+        past_metrics = self.metrics[-lookback:] if len(self.metrics) >= lookback else self.metrics
+        rsi_short_values = [metric[short_key[0]][short_key[1]] for metric in past_metrics]
+        rsi_long_values = [metric[long_key[0]][long_key[1]] for metric in past_metrics]
+
+        # Append latest values
+        rsi_short_values.append(latest_rsi_short)
+        rsi_long_values.append(latest_rsi_long)
+
+        # Ensure we have at least 2 points
+        if len(rsi_short_values) < 2:
+            return 0
+
+        # Check for crossover between the last two points
+        prev_short, curr_short = rsi_short_values[-2], rsi_short_values[-1]
+        prev_long, curr_long = rsi_long_values[-2], rsi_long_values[-1]
+
+        # Bullish crossover: short RSI crosses above long RSI
+        if prev_short <= prev_long and curr_short > curr_long:
+            return 1
+        # Bearish crossover: short RSI crosses below long RSI
+        elif prev_short >= prev_long and curr_short < curr_long:
+            return -1
+        # No crossover
+        else:
+            return 0
     
 def normalize_ema_relative_to_price(ema_value, price):
     """Normalize EMA value relative to current price."""
