@@ -88,7 +88,7 @@ class ZoneAnalyzer:
             return {}, {}
 
         # Calculate dynamic parameters
-        window = max(200, window)
+        window = max(100, window)
         mean_price = np.mean(prices[-window:])
         cv = self.calculate_std_dev(window)
         

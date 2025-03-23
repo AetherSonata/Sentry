@@ -4,20 +4,17 @@ from scipy.signal import find_peaks
 
 
 class IndicatorAnalyzer:
-    def __init__(self, min_interval, price_data=[]):
-        self.min_interval = min_interval
-        self.price_data = price_data
+    def __init__(self, metric_collector):
+        self.min_interval = metric_collector.interval
+        self.price_data = metric_collector.price_data
         self.ema_values = {}
         self.rsi_values = {}
-        self.metrics = []
+        self.metrics = metric_collector.metrics
         self.available_intervals = {
             "1m": 1, "5m": 5, "15m": 15, "30m": 30,
             "1h": 60, "4h": 240, "12h": 720,
             "1d": 1440, "3d": 4320, "1w": 10080
         }
-
-    def append_price(self, new_price):
-        self.price_data.append(new_price)
 
     def calculate_ema(self, interval, period, avg_prev=False):
         if interval not in self.available_intervals:
@@ -44,7 +41,7 @@ class IndicatorAnalyzer:
         if avg_prev:
             self.ema_values[key] = None  #turn on off if current should be calculated with previous
 
-        self.metrics.append({key: new_ema}) # save in metrics for up to date calculations
+        # self.metrics.append({key: new_ema}) # save in metrics for up to date calculations
         return new_ema
 
     def calculate_rsi(self, interval, period=15, avg_prev=False):
@@ -89,7 +86,7 @@ class IndicatorAnalyzer:
         if avg_prev:
             self.rsi_values[key] = None  #turn on off if current should be calculated with previous
 
-        self.metrics.append({key : rsi})  # save in metrics for up to date calculations
+        # self.metrics.append({key : rsi})  # save in metrics for up to date calculations
 
         return rsi
 
@@ -180,34 +177,38 @@ class IndicatorAnalyzer:
                 crossovers[orig_idx] = 0  # Bearish crossover
 
             return crossovers
-    def analyze_rsi_divergence(self, past_metrics, latest_rsi, rsi_key=["rsi", "short"], price_key="price"):
-        # Default return structure
-        default_result = {
-            "divergence_signal": None,
-            "divergence_strength": None,
-            "source": "rsi"
-        }
+    def analyze_rsi_divergence(self, latest_rsi, rsi_key=["rsi", "short"], lookback=30):
+        """
+        Analyzes RSI divergence based on past metrics and latest RSI value.
 
-        # Early return if past_metrics is invalid
-        if not past_metrics or len(past_metrics) < 2:
-            return default_result
+        Args:
+            latest_rsi (float): The current RSI value to append.
+            rsi_key (list): Nested key for RSI in metrics (e.g., ["rsi", "middle_short"]).
+            lookback (int): Number of past periods to analyze (default: 30).
 
-        # Extract price and RSI data with nested keys
-        prices = [metric[price_key] for metric in past_metrics]
-        rsi_values = [metric[rsi_key[0]][rsi_key[1]] for metric in past_metrics]  # e.g., metric["rsi"]["short"]
+        Returns:
+            float: Divergence strength between -1 (bearish) and 1 (bullish), 0 if no divergence.
+        """
+        # Default return if insufficient data
+        if not self.metrics or len(self.metrics) < 2:
+            return 0.0
+
+        # Extract lookback period from metrics
+        past_metrics = self.metrics[-lookback:] if len(self.metrics) >= lookback else self.metrics
+        prices = [metric["price"] for metric in past_metrics]
+        rsi_values = [metric[rsi_key[0]][rsi_key[1]] for metric in past_metrics]
 
         # Append latest values
         rsi_values.append(latest_rsi)
         latest_price = self.price_data[-1]["value"] if self.price_data else prices[-1]
         prices.append(latest_price)
 
-        # Convert to numpy arrays, handle None case explicitly
+        # Convert to numpy arrays, handle None values
         price_array = np.array(prices)
         rsi_array = np.array(rsi_values) if latest_rsi is not None and all(v is not None for v in rsi_values) else None
 
-        # If rsi_array is None, return default dict with None values
         if rsi_array is None:
-            return default_result
+            return 0.0
 
         # Find peaks and troughs
         price_highs_idx, _ = find_peaks(price_array, distance=2)
@@ -215,19 +216,20 @@ class IndicatorAnalyzer:
         rsi_highs_idx, _ = find_peaks(rsi_array, distance=2)
         rsi_lows_idx, _ = find_peaks(-rsi_array, distance=2)
 
-        # Check if we have enough points for divergence
+        # Check if enough points for divergence
         if len(price_highs_idx) < 2 or len(price_lows_idx) < 2 or len(rsi_highs_idx) < 2 or len(rsi_lows_idx) < 2:
-            return default_result
+            return 0.0
 
-        # Helper function for strength
+        # Strength calculation
         def calc_strength(price1, price2, rsi1, rsi2):
-            price_diff = abs(price1 - price2) / min(price1, price2)
-            rsi_diff = abs(rsi1 - rsi2)
-            return min(1.0, rsi_diff / (price_diff + 1e-6))  # Avoid division by zero
+            price_diff = abs(price1 - price2) / min(price1, price2)  # Relative price change
+            rsi_diff = abs(rsi1 - rsi2) / 100.0  # Normalize RSI diff (RSI ranges 0-100)
+            # Strength is the ratio of RSI change to price change, scaled to 0-1
+            strength = min(1.0, rsi_diff / (price_diff + 1e-6))
+            return strength
 
-        # Initialize results
-        divergence_signal = None
-        divergence_strength = 0.0
+        # Initialize strength
+        strength = 0.0
 
         # Bullish divergence: Lower price lows, higher RSI lows
         if len(price_lows_idx) >= 2 and len(rsi_lows_idx) >= 2:
@@ -238,10 +240,9 @@ class IndicatorAnalyzer:
             rsi_low1, rsi_low2 = rsi_array[r_idx1], rsi_array[r_idx2]
 
             if price_low1 > price_low2 and rsi_low1 < rsi_low2:
-                divergence_signal = 1  # Bullish
-                divergence_strength = calc_strength(price_low1, price_low2, rsi_low1, rsi_low2)
-                if rsi_low2 < 30:  # Oversold boost
-                    divergence_strength = min(1.0, divergence_strength * 1.5)
+                strength = calc_strength(price_low1, price_low2, rsi_low1, rsi_low2)
+                if rsi_low2 < 30:  # Boost in oversold region
+                    strength = min(1.0, strength + (1.0 - strength) * 0.5)  # Additive boost
 
         # Bearish divergence: Higher price highs, lower RSI highs
         if len(price_highs_idx) >= 2 and len(rsi_highs_idx) >= 2:
@@ -252,19 +253,11 @@ class IndicatorAnalyzer:
             rsi_high1, rsi_high2 = rsi_array[r_idx1], rsi_array[r_idx2]
 
             if price_high1 < price_high2 and rsi_high1 > rsi_high2:
-                divergence_signal = 0  # Bearish
-                divergence_strength = calc_strength(price_high1, price_high2, rsi_high1, rsi_high2)
-                if rsi_high2 > 70:  # Overbought boost
-                    divergence_strength = min(1.0, divergence_strength * 1.5)
+                strength = -calc_strength(price_high1, price_high2, rsi_high1, rsi_high2)
+                if rsi_high2 > 70:  # Boost in overbought region
+                    strength = max(-1.0, strength - (1.0 + strength) * 0.5)  # Additive boost
 
-        # Update result dictionary
-        result = {
-            "divergence_signal": divergence_signal,
-            "divergence_strength": divergence_strength,
-            "source": "rsi"
-        }
-
-        return result
+        return strength
     
 def normalize_ema_relative_to_price(ema_value, price):
     """Normalize EMA value relative to current price."""

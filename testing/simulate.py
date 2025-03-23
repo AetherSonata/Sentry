@@ -17,12 +17,12 @@ ADRESSES_TO_FETCH = [
                     #   "hV7MQkCpjvuTTnPJXPhPXzvmtMxk8A8ct1KPiRMpump",
                     #   "UL1jwqh3ARmdNTE5qUQyaXHDcrAZ988GZ6tp21Epump",
                     #   "5e41GfrQwTP74LgGt6WP9kw6xa1jQhAERCjnFKf74y52",
-                      "FS4xcBxLJbrrdXE1R6zHvKw8no4zrQn2rRFuczvepump",
-                    #   "9YnfbEaXPaPmoXnKZFmNH8hzcLyjbRf56MQP7oqGpump",
+                    #   "FS4xcBxLJbrrdXE1R6zHvKw8no4zrQn2rRFuczvepump",           # dying scenario - good for testing
+                    #   "9YnfbEaXPaPmoXnKZFmNH8hzcLyjbRf56MQP7oqGpump",             # flat scenario
                     #   "2yFiCwdLiUfxq9PcNXQvu16QdgBFniCJP8P8gEXNpump",
-                    #   "H4phNbsqjV5rqk8u6FUACTLB6rNZRTAPGnBb8KXJpump",
+                    #   "H4phNbsqjV5rqk8u6FUACTLB6rNZRTAPGnBb8KXJpump",             # 12000 interval long term scenario
                     #   "9eXC6W3ZKnkNnCr9iENExRLJDYfPGLbc4m6qfJzJpump",
-                    #   "2TUQ21D87yrbZM1F3RB93sbkiGXeTTfkb8wWqG2ipump",
+                      "2TUQ21D87yrbZM1F3RB93sbkiGXeTTfkb8wWqG2ipump",
                     #   "9pViBf84zD4ncn8Mj8rtdtojnRkxBpibPEjbaGW6pump",
                     ]                   
 

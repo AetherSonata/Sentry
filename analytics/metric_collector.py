@@ -11,8 +11,16 @@ class MetricCollector:
         self.interval = interval
         self.interval_in_minutes = get_interval_in_minutes(interval)
         self.price_data = []  # List of dicts: [{"value": price, "unixTime": ts}, ...]
+        self.metrics = []
 
-        self.indicator_analyzer = IndicatorAnalyzer(interval)
+        self.key_zone_1 = []
+        self.key_zone_2 = []
+        self.key_zone_3 = []
+        self.key_zone_4 = []
+        self.key_zone_5 = []
+        self.key_zone_6 = []
+
+        self.indicator_analyzer = IndicatorAnalyzer(self)
         self.chart_analyzer = ChartAnalyzer(interval)
         self.price_analyzer = PriceAnalytics()
         self.fibonacci_analyzer = FibonacciAnalyzer(interval)
@@ -23,17 +31,10 @@ class MetricCollector:
         self.confidence_settings = self.confidence_calculator
         self.zone_analyzer = ZoneAnalyzer(self)
 
-        self.metrics = []
-        self.key_zone_1 = []
-        self.key_zone_2 = []
-        self.key_zone_3 = []
-        self.key_zone_4 = []
-        self.key_zone_5 = []
-        self.key_zone_6 = []
 
     def add_new_price_point_and_calculate_metrics(self, new_price_point):
         self.price_data.append(new_price_point)
-        self.indicator_analyzer.append_price(new_price_point)
+        # self.indicator_analyzer.append_price(new_price_point)
         self.chart_analyzer.append_price_data(new_price_point)
         self.price_analyzer.append(new_price_point)
         
@@ -122,19 +123,12 @@ class MetricCollector:
             medium_ema_values11, long_ema_values, ema_medium, ema_long
         )
 
-        # Use past metrics (e.g., last 5 points) and append latest rsi_short
-        lookback = 5  # 25 minutes, adjust as needed
-        past_metrics = self.metrics[-lookback:] if len(self.metrics) >= lookback else self.metrics
-        divergence = self.indicator_analyzer.analyze_rsi_divergence(
-            past_metrics=past_metrics,
-            latest_rsi=rsi_short,
-            rsi_key= ["rsi", "short"],  # Use short-term RSI
-            price_key="price"
+        
+        rsi_divergence_signal = self.indicator_analyzer.analyze_rsi_divergence(
+            latest_rsi=rsi_middle_short,
+            rsi_key= ["rsi", "long"],
+            lookback=50,
         )
-
-        # Prepare divergence for metrics dict
-        divergence_signal = divergence["divergence_signal"] if divergence else None
-        divergence_strength = divergence["divergence_strength"] if divergence else 0.0
 
 
         # Build and return metrics dict
@@ -163,10 +157,8 @@ class MetricCollector:
                 "crossover_short_medium": crossover_short_medium,
                 "crossover_medium_long": crossover_medium_long,
             },
-            "divergence": {
-                "signal": divergence_signal,
-                "strength": divergence_strength,
-            },
+            "divergence": rsi_divergence_signal,
+
             "key_zone_1": self.key_zone_1,
             "key_zone_2": self.key_zone_2,
             "key_zone_3": self.key_zone_3,

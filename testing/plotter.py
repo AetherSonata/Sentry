@@ -6,22 +6,25 @@ class PricePlotter:
         self.trading_engine = trading_engine
         self.initial_data_size = len(trading_engine.price_data)
         
-        # Initialize figure with three subplots (removed confidence subplot)
+        # Initialize figure with four subplots
         plt.ion()
-        self.fig = plt.figure(figsize=(12, 10))  # Adjusted height
+        self.fig = plt.figure(figsize=(12, 12))  # Increased height for new subplot
         
-        # Main price plot (larger)
-        self.ax_price = self.fig.add_subplot(311)
+        # Main price plot
+        self.ax_price = self.fig.add_subplot(411)
         # RSI subplot
-        self.ax_rsi = self.fig.add_subplot(312, sharex=self.ax_price)
+        self.ax_rsi = self.fig.add_subplot(412, sharex=self.ax_price)
         # EMA subplot
-        self.ax_ema = self.fig.add_subplot(313, sharex=self.ax_price)
+        self.ax_ema = self.fig.add_subplot(413, sharex=self.ax_price)
+        # Divergence subplot
+        self.ax_divergence = self.fig.add_subplot(414, sharex=self.ax_price)
         
         # Adjust subplot positions
-        self.fig.subplots_adjust(hspace=0.6)
-        self.ax_price.set_position([0.1, 0.65, 0.8, 0.3])  # Top: Price, height 0.3
-        self.ax_rsi.set_position([0.1, 0.40, 0.8, 0.2])    # Middle: RSI, height 0.2
-        self.ax_ema.set_position([0.1, 0.10, 0.8, 0.2])    # Bottom: EMA, height 0.2
+        self.fig.subplots_adjust(hspace=0.8)
+        self.ax_price.set_position([0.1, 0.75, 0.8, 0.2])      # Top: Price, height 0.2
+        self.ax_rsi.set_position([0.1, 0.55, 0.8, 0.2])        # RSI, height 0.2
+        self.ax_ema.set_position([0.1, 0.35, 0.8, 0.2])        # EMA, height 0.2
+        self.ax_divergence.set_position([0.1, 0.10, 0.8, 0.2]) # Bottom: Divergence, height 0.2
         
         # Backtesting indices
         self.targets_index = None
@@ -37,6 +40,7 @@ class PricePlotter:
         self._plot_price(time, metrics, include_backtest=False)
         self._plot_rsi(time, metrics)
         self._plot_ema(time, metrics)
+        self._plot_divergence(time, metrics)
         
         self._customize_plots('Simulated Price Environment')
         plt.draw()
@@ -56,6 +60,7 @@ class PricePlotter:
         self._plot_price(time, metrics, include_backtest=include_backtest)
         self._plot_rsi(time, metrics)
         self._plot_ema(time, metrics)
+        self._plot_divergence(time, metrics)
         
         self._customize_plots('Complete Solana Token Price Action')
         plt.show()
@@ -72,12 +77,12 @@ class PricePlotter:
         self.ax_price.clear()
         self.ax_rsi.clear()
         self.ax_ema.clear()
+        self.ax_divergence.clear()
 
     def _plot_price(self, time, metrics, include_backtest=False):
         """Plot price data with support/resistance zones, confidence underlay, and optional backtesting points"""
         prices = [m['price'] for m in metrics]
         
-        # Plot initial and live data
         if self.initial_data_size > 0:
             end_initial = min(self.initial_data_size, len(metrics))
             self.ax_price.plot(
@@ -92,24 +97,19 @@ class PricePlotter:
                 label='Live Data', zorder=2
             )
         
-        # Plot zones
         self._plot_zones(metrics[-1])
         
-        # Underlay zone confidence
-        confidences = [m.get('zone_confidence', 0) for m in metrics]  # Default to 0 if missing
+        confidences = [m.get('zone_confidence', 0) for m in metrics]
         if confidences:
-            # Get y-axis limits from price data to scale confidence
             price_min, price_max = min(prices), max(prices)
-            if price_max == price_min:  # Avoid division by zero
+            if price_max == price_min:
                 price_max = price_min + 1
-            # Scale confidence from 0 (price_min) to 1 (price_max)
             scaled_confidences = [price_min + (price_max - price_min) * c for c in confidences]
             self.ax_price.fill_between(
                 time, price_min, scaled_confidences,
                 color='green', alpha=0.2, zorder=1, label='Zone Confidence'
             )
         
-        # Plot backtesting points if applicable
         if include_backtest:
             if self.targets_index:
                 target_times = [time[i] for i in self.targets_index if i < len(time)]
@@ -151,6 +151,20 @@ class PricePlotter:
         self.ax_ema.plot(time, ema_long, '-', color='purple', label='EMA Long')
         self.ax_ema.plot(time, ema_longterm, '-', color='green', label='EMA Long-term')
 
+    def _plot_divergence(self, time, metrics):
+        """Plot RSI divergence strength as vertical lines"""
+        divergence_strengths = [m['divergence'] for m in metrics]
+
+        print(divergence_strengths)
+        
+        for t, strength in zip(time, divergence_strengths):
+            if strength > 0:  # Bullish divergence
+                alpha = strength  # Strength ranges from 0 to 1
+                self.ax_divergence.axvline(x=t, color='green', alpha=alpha, linestyle='-', linewidth=2)
+            elif strength < 0:  # Bearish divergence
+                alpha = abs(strength)  # Convert -1 to 0 range to 0 to 1 for alpha
+                self.ax_divergence.axvline(x=t, color='red', alpha=alpha, linestyle='-', linewidth=2)
+
     def _plot_zones(self, metric):
         """Plot support and resistance zones from metrics."""
         current_price = metric['price']
@@ -166,7 +180,6 @@ class PricePlotter:
             if not zone_data or 'level' not in zone_data:
                 return
             level = zone_data['level']
-            strength = zone_data.get('strength', 1)
             self.ax_price.axhline(
                 y=level,
                 color=color,
@@ -177,7 +190,7 @@ class PricePlotter:
         plot_zone(key_zone_1, 'green', 'key_zone_1')
         plot_zone(key_zone_2, 'red', 'key_zone_2')
         plot_zone(key_zone_3, 'purple', 'key_zone_3')
-        plot_zone(key_zone_4, 'yellow', 'key LICzone_4')
+        plot_zone(key_zone_4, 'yellow', 'key_zone_4')
         plot_zone(key_zone_5, 'brown', 'key_zone_5')
         plot_zone(key_zone_6, 'pink', 'key_zone_6')
 
@@ -197,3 +210,7 @@ class PricePlotter:
         self.ax_ema.set_ylabel('EMA')
         self.ax_ema.legend()
         self.ax_ema.grid(True, linestyle='--', alpha=0.7)
+        
+        self.ax_divergence.set_ylabel('Divergence')
+        self.ax_divergence.set_ylim(-1, 1)  # Optional: Set y-limits for clarity
+        self.ax_divergence.grid(True, linestyle='--', alpha=0.7)
