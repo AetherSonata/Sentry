@@ -10,7 +10,7 @@ import random
 ADRESSES_TO_FETCH = [ 
                     #   "CniPCE4b3s8gSUPhUiyMjXnytrEqUrMfSsnbBjLCpump",
                     #   "AQiE2ghyFbBsbsfHiTEbKWcCLTDgyGzceKEPWftZpump"
-                    #   "FWAr6oWa6CHg6WUcXu8CqkmsdbhtEqL8t31QTonppump",         # Bullish scenario
+                      "FWAr6oWa6CHg6WUcXu8CqkmsdbhtEqL8t31QTonppump",         # Bullish scenario
                     #   "FtUEW73K6vEYHfbkfpdBZfWpxgQar2HipGdbutEhpump",
                     #   "EF3Ln1DkUB5azvqcaCJgG3RR2qSUJEXxLo1q4ZHzpump",           # Long Term scenario
                     #   "GYTd9XbZTfwicCV28LGkwiDF4DgpXTTAi2UeCajfpump",
@@ -22,7 +22,7 @@ ADRESSES_TO_FETCH = [
                     #   "2yFiCwdLiUfxq9PcNXQvu16QdgBFniCJP8P8gEXNpump",
                     #   "H4phNbsqjV5rqk8u6FUACTLB6rNZRTAPGnBb8KXJpump",             # 12000 interval long term scenario
                     #   "9eXC6W3ZKnkNnCr9iENExRLJDYfPGLbc4m6qfJzJpump",
-                      "2TUQ21D87yrbZM1F3RB93sbkiGXeTTfkb8wWqG2ipump",
+                    #   "2TUQ21D87yrbZM1F3RB93sbkiGXeTTfkb8wWqG2ipump",
                     #   "9pViBf84zD4ncn8Mj8rtdtojnRkxBpibPEjbaGW6pump",
                     ]                   
 

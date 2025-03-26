@@ -6,25 +6,22 @@ class PricePlotter:
         self.trading_engine = trading_engine
         self.initial_data_size = len(trading_engine.price_data)
         
-        # Initialize figure with four subplots
+        # Initialize figure with three subplots
         plt.ion()
-        self.fig = plt.figure(figsize=(12, 12))  # Increased height for new subplot
+        self.fig = plt.figure(figsize=(12, 12))
         
-        # Main price plot
-        self.ax_price = self.fig.add_subplot(411)
-        # RSI subplot
-        self.ax_rsi = self.fig.add_subplot(412, sharex=self.ax_price)
-        # EMA subplot
-        self.ax_ema = self.fig.add_subplot(413, sharex=self.ax_price)
-        # Divergence subplot
-        self.ax_divergence = self.fig.add_subplot(414, sharex=self.ax_price)
+        # Main price plot (unchanged size)
+        self.ax_price = self.fig.add_subplot(311)
+        # Slimmer RSI subplot
+        self.ax_rsi = self.fig.add_subplot(312, sharex=self.ax_price)
+        # New combined plot (same size as main plot)
+        self.ax_combined = self.fig.add_subplot(313, sharex=self.ax_price)
         
         # Adjust subplot positions
-        self.fig.subplots_adjust(hspace=0.8)
-        self.ax_price.set_position([0.1, 0.75, 0.8, 0.2])      # Top: Price, height 0.2
-        self.ax_rsi.set_position([0.1, 0.55, 0.8, 0.2])        # RSI, height 0.2
-        self.ax_ema.set_position([0.1, 0.35, 0.8, 0.2])        # EMA, height 0.2
-        self.ax_divergence.set_position([0.1, 0.10, 0.8, 0.2]) # Bottom: Divergence, height 0.2
+        self.fig.subplots_adjust(hspace=0.3)  # Small gap after RSI
+        self.ax_price.set_position([0.1, 0.75, 0.8, 0.2])     # Top: Price, height 0.2
+        self.ax_rsi.set_position([0.1, 0.65, 0.8, 0.08])      # RSI, slimmer at 0.08
+        self.ax_combined.set_position([0.1, 0.40, 0.8, 0.2])  # Bottom: Combined, height 0.2
         
         # Backtesting indices
         self.targets_index = None
@@ -39,8 +36,7 @@ class PricePlotter:
         
         self._plot_price(time, metrics, include_backtest=False)
         self._plot_rsi(time, metrics)
-        self._plot_ema(time, metrics)
-        self._plot_divergence(time, metrics)
+        self._plot_combined(time, metrics, include_backtest=False)
         
         self._customize_plots('Simulated Price Environment')
         plt.draw()
@@ -59,8 +55,7 @@ class PricePlotter:
         include_backtest = self.plot_backtest and (self.targets_index is not None or self.similars_index is not None)
         self._plot_price(time, metrics, include_backtest=include_backtest)
         self._plot_rsi(time, metrics)
-        self._plot_ema(time, metrics)
-        self._plot_divergence(time, metrics)
+        self._plot_combined(time, metrics, include_backtest=include_backtest)
         
         self._customize_plots('Complete Solana Token Price Action')
         plt.show()
@@ -76,11 +71,11 @@ class PricePlotter:
         """Clear all axes for fresh plotting"""
         self.ax_price.clear()
         self.ax_rsi.clear()
-        self.ax_ema.clear()
-        self.ax_divergence.clear()
+        self.ax_combined.clear()
 
     def _plot_price(self, time, metrics, include_backtest=False):
         """Plot price data with support/resistance zones, confidence underlay, and optional backtesting points"""
+        # [Unchanged from original - keeping main plot functionality]
         prices = [m['price'] for m in metrics]
         
         if self.initial_data_size > 0:
@@ -125,7 +120,7 @@ class PricePlotter:
                 )
 
     def _plot_rsi(self, time, metrics):
-        """Plot RSI values and RSI slope"""
+        """Plot RSI values and RSI slope - unchanged functionality"""
         rsi_short = [m['rsi']['short'] for m in metrics]
         rsi_mid = [m['rsi']['middle_short'] for m in metrics]
         rsi_long = [m['rsi']['long'] for m in metrics]
@@ -139,34 +134,75 @@ class PricePlotter:
         self.ax_rsi.axhline(y=70, color='r', linestyle='--', alpha=0.3)
         self.ax_rsi.axhline(y=30, color='g', linestyle='--', alpha=0.3)
 
-    def _plot_ema(self, time, metrics):
-        """Plot EMA values"""
-        ema_short = [m['ema']['short'] for m in metrics]
-        ema_medium = [m['ema']['medium'] for m in metrics]
-        ema_long = [m['ema']['long'] for m in metrics]
-        ema_longterm = [m['ema']['longterm'] for m in metrics]
+    def _plot_combined(self, time, metrics, include_backtest=False):
+        """Plot combined price action with EMA values and crossovers"""
+        prices = [m['price'] for m in metrics]
         
-        self.ax_ema.plot(time, ema_short, '-', color='blue', label='EMA Short')
-        self.ax_ema.plot(time, ema_medium, '-', color='orange', label='EMA Medium')
-        self.ax_ema.plot(time, ema_long, '-', color='purple', label='EMA Long')
-        self.ax_ema.plot(time, ema_longterm, '-', color='green', label='EMA Long-term')
-
-    def _plot_divergence(self, time, metrics):
-        """Plot RSI divergence strength as vertical lines"""
+        # Plot price action
+        if self.initial_data_size > 0:
+            end_initial = min(self.initial_data_size, len(metrics))
+            self.ax_combined.plot(
+                time[:end_initial], prices[:end_initial], 'o-', color='grey',
+                label='Initial Price', zorder=2
+            )
+        
+        if len(metrics) > self.initial_data_size:
+            start_live = max(0, self.initial_data_size - (len(self.trading_engine.metric_collector.metrics) - len(metrics)))
+            self.ax_combined.plot(
+                time[start_live:], prices[start_live:], 'o-', color='black',
+                label='Live Price', zorder=2
+            )
+        
+        # Calculate and plot real EMA prices with reduced alpha
+        ema_short = []
+        ema_medium = []
+        ema_long = []
+        ema_longterm = []
+        
+        for i, m in enumerate(metrics):
+            ema = m.get('ema', {})  # Safely get ema dict, default to empty dict
+            price = prices[i]
+            ema_short.append((ema.get('short', 0) or 0) * price)
+            ema_medium.append((ema.get('medium', 0) or 0) * price)
+            ema_long.append((ema.get('long', 0) or 0) * price)
+            ema_longterm.append((ema.get('longterm', 0) or 0) * price)
+        
+        self.ax_combined.plot(time, ema_short, '-', color='blue', label='EMA Short', alpha=0.8)
+        self.ax_combined.plot(time, ema_medium, '-', color='orange', label='EMA Medium', alpha=0.8)
+        self.ax_combined.plot(time, ema_long, '-', color='purple', label='EMA Long', alpha=0.8)
+        self.ax_combined.plot(time, ema_longterm, '-', color='green', label='EMA Long-term', alpha=0.8)
+        
+        # Plot RSI divergence crossovers with very low alpha for less prominence
         divergence_strengths = [m['divergence'] for m in metrics]
-
-        print(divergence_strengths)
+        price_min, price_max = min(prices), max(prices)
+        if price_max == price_min:
+            price_max = price_min + 1
         
-        for t, strength in zip(time, divergence_strengths):
-            if strength > 0:  # Bullish divergence
-                alpha = strength  # Strength ranges from 0 to 1
-                self.ax_divergence.axvline(x=t, color='green', alpha=alpha, linestyle='-', linewidth=2)
-            elif strength < 0:  # Bearish divergence
-                alpha = abs(strength)  # Convert -1 to 0 range to 0 to 1 for alpha
-                self.ax_divergence.axvline(x=t, color='red', alpha=alpha, linestyle='-', linewidth=2)
+        for i in range(1, len(time)):
+            if divergence_strengths[i] > 0:  # Bullish
+                self.ax_combined.axvspan(
+                    time[i-1], time[i], 
+                    ymin=0, ymax=1,  # Full height but clipped by price limits
+                    color='green', 
+                    alpha=min(0.05, divergence_strengths[i]),  # Reduced to 0.05 for less prominence
+                    zorder=1
+                )
+            elif divergence_strengths[i] < 0:  # Bearish
+                self.ax_combined.axvspan(
+                    time[i-1], time[i], 
+                    ymin=0, ymax=1,  # Full height but clipped by price limits
+                    color='red', 
+                    alpha=min(0.05, abs(divergence_strengths[i])),  # Reduced to 0.05 for less prominence
+                    zorder=1
+                )
+        
+        # Set y-axis limits based on price range, with some padding
+        padding = (price_max - price_min) * 0.1  # 10% padding
+        self.ax_combined.set_ylim(price_min - padding, price_max + padding)
 
     def _plot_zones(self, metric):
-        """Plot support and resistance zones from metrics."""
+        """Plot support and resistance zones from metrics - unchanged"""
+        # [Unchanged from original]
         current_price = metric['price']
         
         key_zone_1 = self.trading_engine.metric_collector.key_zone_1
@@ -206,11 +242,7 @@ class PricePlotter:
         self.ax_rsi.grid(True, linestyle='--', alpha=0.7)
         self.ax_rsi.set_ylim(0, 100)
         
-        self.ax_ema.set_xlabel('Time (index)')
-        self.ax_ema.set_ylabel('EMA')
-        self.ax_ema.legend()
-        self.ax_ema.grid(True, linestyle='--', alpha=0.7)
-        
-        self.ax_divergence.set_ylabel('Divergence')
-        self.ax_divergence.set_ylim(-1, 1)  # Optional: Set y-limits for clarity
-        self.ax_divergence.grid(True, linestyle='--', alpha=0.7)
+        self.ax_combined.set_xlabel('Time (index)')
+        self.ax_combined.set_ylabel('Price/EMA')
+        self.ax_combined.legend()
+        self.ax_combined.grid(True, linestyle='--', alpha=0.7)
