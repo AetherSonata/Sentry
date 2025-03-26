@@ -178,15 +178,15 @@ class IndicatorAnalyzer:
 
             return crossovers
 
-    def analyze_rsi_divergence(self, latest_rsi, rsi_key=["rsi", "short"], lookback=30, peak_distance=5):
+    def analyze_rsi_divergence(self, latest_rsi, rsi_key=["rsi", "long"], lookback=100, peak_distance=15):
         """
-        Analyzes RSI divergence based on past metrics and latest RSI value.
+        Analyzes RSI divergence based on past metrics and latest RSI value, with adjustments for mid/larger dips.
 
         Args:
             latest_rsi (float): The current RSI value to append.
-            rsi_key (list): Nested key for RSI in metrics (e.g., ["rsi", "middle_short"]).
-            lookback (int): Number of past periods to analyze (default: 30).
-            peak_distance (int): Minimum distance between peaks/troughs for detection (default: 5).
+            rsi_key (list): Nested key for RSI in metrics (e.g., ["rsi", "long"]).
+            lookback (int): Number of past periods to analyze (default: 100 for broader trends).
+            peak_distance (int): Minimum distance between peaks/troughs for detection (default: 15 to reduce noise).
 
         Returns:
             float: Divergence strength between -1 (bearish) and 1 (bullish), 0 if no divergence.
@@ -226,10 +226,12 @@ class IndicatorAnalyzer:
         if len(price_highs_idx) < 2 or len(price_lows_idx) < 2 or len(rsi_highs_idx) < 2 or len(rsi_lows_idx) < 2:
             return 0.0
 
-        # Strength calculation
+        # Strength calculation with price magnitude filter
         def calc_strength(price1, price2, rsi1, rsi2, price_range, rsi_range):
             price_diff = abs(price1 - price2) / price_range
             rsi_diff = abs(rsi1 - rsi2) / rsi_range
+            if price_diff < 0.05:  # Ignore small price changes (less than 5% of range)
+                return 0.0
             raw_strength = rsi_diff / (price_diff + 1e-6)  # Divergence ratio
             strength = 2 / (1 + np.exp(-raw_strength)) - 1  # Sigmoid scaling to -1 to 1
             return min(1.0, max(-1.0, strength))

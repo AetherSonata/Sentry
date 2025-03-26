@@ -124,10 +124,10 @@ class MetricCollector:
         )
 
         rsi_divergence_signal = self.indicator_analyzer.analyze_rsi_divergence(
-            latest_rsi=rsi_middle_short,
-            rsi_key= ["rsi", "middle_short"],
-            lookback=25,
-            peak_distance=5
+            latest_rsi=rsi_long,
+            rsi_key= ["rsi", "long"],
+            lookback=100,
+            peak_distance=15
         )
 
 

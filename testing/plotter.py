@@ -20,7 +20,7 @@ class PricePlotter:
         # Adjust subplot positions
         self.fig.subplots_adjust(hspace=0.3)  # Small gap after RSI
         self.ax_price.set_position([0.1, 0.75, 0.8, 0.2])     # Top: Price, height 0.2
-        self.ax_rsi.set_position([0.1, 0.65, 0.8, 0.08])      # RSI, slimmer at 0.08
+        self.ax_rsi.set_position([0.1, 0.66, 0.8, 0.08])      # RSI, slimmer at 0.08
         self.ax_combined.set_position([0.1, 0.40, 0.8, 0.2])  # Bottom: Combined, height 0.2
         
         # Backtesting indices
@@ -138,22 +138,31 @@ class PricePlotter:
         """Plot combined price action with EMA values and crossovers"""
         prices = [m['price'] for m in metrics]
         
-        # Plot price action
-        if self.initial_data_size > 0:
-            end_initial = min(self.initial_data_size, len(metrics))
-            self.ax_combined.plot(
-                time[:end_initial], prices[:end_initial], 'o-', color='grey',
-                label='Initial Price', zorder=2
-            )
+        # Plot RSI divergence crossovers first (background, lowest zorder)
+        divergence_strengths = [m['divergence'] for m in metrics]
+        price_min, price_max = min(prices), max(prices)
+        if price_max == price_min:
+            price_max = price_min + 1
         
-        if len(metrics) > self.initial_data_size:
-            start_live = max(0, self.initial_data_size - (len(self.trading_engine.metric_collector.metrics) - len(metrics)))
-            self.ax_combined.plot(
-                time[start_live:], prices[start_live:], 'o-', color='black',
-                label='Live Price', zorder=2
-            )
+        for i in range(1, len(time)):
+            if divergence_strengths[i] > 0:  # Bullish
+                self.ax_combined.axvspan(
+                    time[i-1], time[i], 
+                    ymin=0, ymax=1,
+                    color='green', 
+                    alpha=min(0.05, divergence_strengths[i]),
+                    zorder=1  # Background
+                )
+            elif divergence_strengths[i] < 0:  # Bearish
+                self.ax_combined.axvspan(
+                    time[i-1], time[i], 
+                    ymin=0, ymax=1,
+                    color='red', 
+                    alpha=min(0.05, abs(divergence_strengths[i])),
+                    zorder=1  # Background
+                )
         
-        # Calculate and plot real EMA prices with reduced alpha
+        # Calculate and plot EMA prices (middle layer)
         ema_short = []
         ema_medium = []
         ema_long = []
@@ -167,34 +176,25 @@ class PricePlotter:
             ema_long.append((ema.get('long', 0) or 0) * price)
             ema_longterm.append((ema.get('longterm', 0) or 0) * price)
         
-        self.ax_combined.plot(time, ema_short, '-', color='blue', label='EMA Short', alpha=0.8)
-        self.ax_combined.plot(time, ema_medium, '-', color='orange', label='EMA Medium', alpha=0.8)
-        self.ax_combined.plot(time, ema_long, '-', color='purple', label='EMA Long', alpha=0.8)
-        self.ax_combined.plot(time, ema_longterm, '-', color='green', label='EMA Long-term', alpha=0.8)
+        self.ax_combined.plot(time, ema_short, '-', color='blue', label='EMA Short', alpha=0.8, zorder=2)
+        self.ax_combined.plot(time, ema_medium, '-', color='orange', label='EMA Medium', alpha=0.8, zorder=2)
+        self.ax_combined.plot(time, ema_long, '-', color='purple', label='EMA Long', alpha=0.8, zorder=2)
+        self.ax_combined.plot(time, ema_longterm, '-', color='green', label='EMA Long-term', alpha=0.8, zorder=2)
         
-        # Plot RSI divergence crossovers with very low alpha for less prominence
-        divergence_strengths = [m['divergence'] for m in metrics]
-        price_min, price_max = min(prices), max(prices)
-        if price_max == price_min:
-            price_max = price_min + 1
+        # Plot price action last (foreground, highest zorder)
+        if self.initial_data_size > 0:
+            end_initial = min(self.initial_data_size, len(metrics))
+            self.ax_combined.plot(
+                time[:end_initial], prices[:end_initial], 'o-', color='grey',
+                label='Initial Price', zorder=3  # Increased to 3 to be on top
+            )
         
-        for i in range(1, len(time)):
-            if divergence_strengths[i] > 0:  # Bullish
-                self.ax_combined.axvspan(
-                    time[i-1], time[i], 
-                    ymin=0, ymax=1,  # Full height but clipped by price limits
-                    color='green', 
-                    alpha=min(0.05, divergence_strengths[i]),  # Reduced to 0.05 for less prominence
-                    zorder=1
-                )
-            elif divergence_strengths[i] < 0:  # Bearish
-                self.ax_combined.axvspan(
-                    time[i-1], time[i], 
-                    ymin=0, ymax=1,  # Full height but clipped by price limits
-                    color='red', 
-                    alpha=min(0.05, abs(divergence_strengths[i])),  # Reduced to 0.05 for less prominence
-                    zorder=1
-                )
+        if len(metrics) > self.initial_data_size:
+            start_live = max(0, self.initial_data_size - (len(self.trading_engine.metric_collector.metrics) - len(metrics)))
+            self.ax_combined.plot(
+                time[start_live:], prices[start_live:], 'o-', color='black',
+                label='Live Price', zorder=3  # Increased to 3 to be on top
+            )
         
         # Set y-axis limits based on price range, with some padding
         padding = (price_max - price_min) * 0.1  # 10% padding
