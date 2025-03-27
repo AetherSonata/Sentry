@@ -1,8 +1,8 @@
-# chains/solana/operations/utils.py
+# chains/solana_utils.py
 import asyncio
-from solana.rpc.async_api import AsyncClient
+from solana.rpc.async_api import AsyncClient  # Correct AsyncClient import
 import aiohttp
-from solana.transaction import Transaction
+from solders.transaction import Transaction   # Correct Transaction import
 from solana.rpc.types import TokenAccountOpts
 import base58
 
@@ -20,6 +20,7 @@ class SolanaUtils:
         sol_balance = balance.value / 1_000_000_000  # Convert lamports to SOL
         print(f"SOL Balance: {sol_balance}")
         return sol_balance
+
 
     async def fetch_token_balance(self, token_mint_address):
         """Fetch the balance of a specific SPL token."""

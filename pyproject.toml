@@ -15,10 +15,11 @@ numpy = "^2.2.3"
 matplotlib = "^3.10.1"
 pandas = "^2.2.3"
 scipy = "^1.15.2"
-solana = "^0.36.6"
-solders = "^0.26.0"
 base58 = "^2.1.1"
 aiohttp = "^3.11.14"
+asyncio = "^3.4.3"
+solana = "^0.36.6"
+solders = "^0.26.0"
 
 
 [build-system]

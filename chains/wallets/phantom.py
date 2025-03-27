@@ -3,23 +3,19 @@ from solana.rpc.async_api import AsyncClient
 from solders.keypair import Keypair
 import base58
 from dotenv import load_dotenv
+from chains.solana_utils import SolanaUtils
 import os
 
 class PhantomWallet:
     def __init__(self, rpc_endpoint="https://api.mainnet-beta.solana.com"):
-        """Initialize Phantom wallet and connect to Solana."""
-        # Load private key from .env
         load_dotenv()
         private_key = os.getenv("PHANTOM_PRIVATE_KEY")
         if not private_key:
             raise ValueError("PHANTOM_PRIVATE_KEY not found in .env")
-
-        # Convert private key to Keypair
         self.keypair = Keypair.from_bytes(base58.b58decode(private_key))
         self.public_key = self.keypair.pubkey()
-
-        # Connect to Solana RPC
         self.client = AsyncClient(rpc_endpoint)
+        self.solanaUtils = SolanaUtils(self.keypair, rpc_endpoint)  # Add this
         print(f"Connected to Solana with Phantom wallet: {self.public_key}")
 
     def get_keypair(self):
