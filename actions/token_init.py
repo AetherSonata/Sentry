@@ -15,7 +15,7 @@ OHLCV = False
 RAW_DATA_PATH = "historical_data/"
 
 async def fetch_new_data_point(token):
-    await asyncio.sleep(0.5)  # Placeholder
+    await asyncio.sleep(0.5)  # Placeholder  - later interval conversion needed
     return {"price": 100, "unixTime": int(time.time() * 1000)}  # Add timestamp
 
 def process_historical_data(args):

@@ -44,6 +44,30 @@ class IndicatorAnalyzer:
         # self.metrics.append({key: new_ema}) # save in metrics for up to date calculations
         return new_ema
 
+    def calculate_sma(self, interval, period):
+        """
+        Calculate the Simple Moving Average (SMA) for a given interval and period.
+
+        Args:
+            interval (str): The time interval (e.g., '1m', '5m').
+            period (int): The number of periods for the SMA.
+
+        Returns:
+            float or None: The SMA value, or None if insufficient data or invalid interval.
+        """
+        if interval not in self.available_intervals:
+            return None
+
+        step = self.available_intervals[interval] // self.available_intervals[self.min_interval]
+        prices = list(self.price_data)[-period * step::step]
+
+        if len(prices) < period:
+            return None
+
+        price_series = pd.Series([x["value"] for x in prices])
+        sma = price_series.mean()
+        return sma
+
     def calculate_rsi(self, interval, period=15, avg_prev=False):
         
         if interval not in self.available_intervals:
@@ -117,15 +141,17 @@ class IndicatorAnalyzer:
             linear_slope = (last_n_values[-1] - last_n_values[0]) / (len(last_n_values) - 1)  # Linear slope
             return linear_slope
 
-    def calculate_ema_crossovers(self, short_ema_list, long_ema_list, current_short, current_long):
+    def calculate_ma_crossovers(self, short_ma_list, long_ma_list, current_short, current_long):
         """
-        Calculates EMA crossovers given lists of short and long EMA values plus current values.
+        Calculate moving average crossovers given lists of short and long MA values plus current values.
+
+        This method can be used for both EMA and SMA crossovers by providing the appropriate MA lists.
 
         Args:
-            short_ema_list (list): List of recent short EMA values (any length, may contain None).
-            long_ema_list (list): List of recent long EMA values (same length as short_ema_list, may contain None).
-            current_short (float): The newest short EMA value.
-            current_long (float): The newest long EMA value.
+            short_ma_list (list): List of recent short MA values (any length, may contain None).
+            long_ma_list (list): List of recent long MA values (same length as short_ma_list, may contain None).
+            current_short (float): The newest short MA value.
+            current_long (float): The newest long MA value.
 
         Returns:
             list: A list with length equal to input list length + 1, containing:
@@ -133,50 +159,73 @@ class IndicatorAnalyzer:
                 - 0 (bearish crossover)
                 - None (no crossover or invalid data)
         """
-        # Filter out None values from input lists, keeping pairs aligned
-        valid_pairs = [(s, l) for s, l in zip(short_ema_list, long_ema_list) if s is not None and l is not None]
+        valid_pairs = [(s, l) for s, l in zip(short_ma_list, long_ma_list) if s is not None and l is not None]
         short_valid = [pair[0] for pair in valid_pairs]
         long_valid = [pair[1] for pair in valid_pairs]
 
-        # Add current values (assume they're valid floats)
-        short_emas = short_valid + [current_short]
-        long_emas = long_valid + [current_long]
+        short_mas = short_valid + [current_short]
+        long_mas = long_valid + [current_long]
 
-        # Original input length including current values
-        n = len(short_ema_list) + 1
+        n = len(short_ma_list) + 1
 
-        # If less than 2 valid entries, return None list of original length
-        if len(short_emas) < 2:
+        if len(short_mas) < 2:
             return [None] * n
 
-        # Adjust to minimum length of valid data
-        n_valid = min(len(short_emas), len(long_emas))
-        short_emas = short_emas[-n_valid:]
-        long_emas = long_emas[-n_valid:]
+        n_valid = min(len(short_mas), len(long_mas))
+        short_mas = short_mas[-n_valid:]
+        long_mas = long_mas[-n_valid:]
 
-        # Initialize result with None, matching original input length
         crossovers = [None] * n
 
-        # Check crossovers only on valid data
         for i in range(1, n_valid):
-            prev_short = short_emas[i - 1]
-            prev_long = long_emas[i - 1]
-            curr_short = short_emas[i]
-            curr_long = long_emas[i]
+            prev_short = short_mas[i - 1]
+            prev_long = long_mas[i - 1]
+            curr_short = short_mas[i]
+            curr_long = long_mas[i]
 
-            # Ensure all values are numeric (redundant with filter, but safe)
             if any(x is None for x in [prev_short, prev_long, curr_short, curr_long]):
                 continue
 
             if prev_short <= prev_long and curr_short > curr_long:
-                # Map valid index to original list position
                 orig_idx = n - (n_valid - i)
                 crossovers[orig_idx] = 1  # Bullish crossover
             elif prev_short >= prev_long and curr_short < curr_long:
                 orig_idx = n - (n_valid - i)
                 crossovers[orig_idx] = 0  # Bearish crossover
 
-            return crossovers
+        return crossovers
+        
+    def calculate_bollinger_bands(self, interval, sma_period=20, std_dev_factor=2):
+        """
+        Calculate Bollinger Bands for a given interval, SMA period, and standard deviation factor.
+
+        Args:
+            interval (str): The time interval (e.g., '1m', '5m').
+            sma_period (int, optional): The period for the SMA (middle band). Defaults to 20.
+            std_dev_factor (float, optional): The number of standard deviations for the bands. Defaults to 2.
+
+        Returns:
+            dict or None: Dictionary with 'middle_band', 'upper_band', and 'lower_band', or None if insufficient data.
+        """
+        if interval not in self.available_intervals:
+            return None
+
+        step = self.available_intervals[interval] // self.available_intervals[self.min_interval]
+        prices = list(self.price_data)[-sma_period * step::step]
+
+        if len(prices) < sma_period:
+            return None
+
+        price_series = pd.Series([x["value"] for x in prices])
+        sma = price_series.mean()
+        std_dev = price_series.std()  # Uses sample standard deviation (ddof=1) by default
+        upper_band = sma + (std_dev_factor * std_dev)
+        lower_band = sma - (std_dev_factor * std_dev)
+        return {
+            'middle_band': sma,
+            'upper_band': upper_band,
+            'lower_band': lower_band
+        }
 
     def analyze_rsi_divergence(self, latest_rsi, rsi_key=["rsi", "long"], lookback=100, peak_distance=15):
         """
@@ -311,9 +360,13 @@ class IndicatorAnalyzer:
         # No crossover
         else:
             return 0
+        
+
+    def analyze_ma(self, )
     
 def normalize_ema_relative_to_price(ema_value, price):
     """Normalize EMA value relative to current price."""
     if ema_value == 0 or ema_value is None:
         return None  # Avoid division by zero
     return price / ema_value
+
