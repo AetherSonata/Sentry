@@ -105,6 +105,13 @@ class MetricCollector:
         ema_long = self.indicator_analyzer.calculate_ema("5m", 100)
         ema_longterm = self.indicator_analyzer.calculate_ema("5m", 200)
 
+        sma_short = self.indicator_analyzer.calculate_sma("1h", 5)
+        sma_medium = self.indicator_analyzer.calculate_sma("1h", 10)
+        sma_long = self.indicator_analyzer.calculate_sma("1h", 20)
+
+        boilinger_bands = self.indicator_analyzer.calculate_bollinger_bands("1h", 20, 2, sma_long)
+ 
+
         normalized_ema_short = normalize_ema_relative_to_price(ema_short, current_price)
         normalized_ema_medium = normalize_ema_relative_to_price(ema_medium, current_price)
         normalized_ema_long = normalize_ema_relative_to_price(ema_long, current_price)
@@ -116,10 +123,10 @@ class MetricCollector:
         medium_ema_values11 = [m["ema"]["long"] for m in self.metrics if "ema" in m and "medium" in m["ema"]][-11:]
         long_ema_values = [m["ema"]["longterm"] for m in self.metrics if "ema" in m and "long" in m["ema"]][-11:]
 
-        crossover_short_medium = self.indicator_analyzer.calculate_ema_crossovers(
+        crossover_short_medium = self.indicator_analyzer.calculate_ma_crossovers(
             short_ema_values, medium_ema_values, ema_short, ema_medium
         )
-        crossover_medium_long = self.indicator_analyzer.calculate_ema_crossovers(
+        crossover_medium_long = self.indicator_analyzer.calculate_ma_crossovers(
             medium_ema_values11, long_ema_values, ema_medium, ema_long
         )
 
@@ -130,6 +137,8 @@ class MetricCollector:
             peak_distance=15
         )
 
+        macd = self.indicator_analyzer.calculate_macd("1h")
+        # print(macd)
 
         # Build and return metrics dict
         return {
@@ -157,7 +166,23 @@ class MetricCollector:
                 "crossover_short_medium": crossover_short_medium,
                 "crossover_medium_long": crossover_medium_long,
             },
+            "sma": {
+                "short": sma_short,
+                "medium": sma_medium,
+                "long": sma_long,
+            },
             "divergence": rsi_divergence_signal,
+
+            "boilinger_bands": {
+                "upper": boilinger_bands["upper_band"],
+                "middle": boilinger_bands["middle_band"],
+                "lower": boilinger_bands["lower_band"],
+            },
+            "macd": {
+                "macd": macd["macd"],
+                "signal": macd["signal"],
+                "histogram": macd["histogram"],
+            },
 
             "key_zone_1": self.key_zone_1,
             "key_zone_2": self.key_zone_2,

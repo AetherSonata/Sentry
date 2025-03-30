@@ -5,20 +5,22 @@ import asyncio
 TEST_TOKENS = [ 
                     #   "CniPCE4b3s8gSUPhUiyMjXnytrEqUrMfSsnbBjLCpump",
                     #   "AQiE2ghyFbBsbsfHiTEbKWcCLTDgyGzceKEPWftZpump"
-                      "FWAr6oWa6CHg6WUcXu8CqkmsdbhtEqL8t31QTonppump",         # Bullish scenario
+                    #   "FWAr6oWa6CHg6WUcXu8CqkmsdbhtEqL8t31QTonppump",         # Bullish scenario
                     #   "FtUEW73K6vEYHfbkfpdBZfWpxgQar2HipGdbutEhpump",
                     #   "EF3Ln1DkUB5azvqcaCJgG3RR2qSUJEXxLo1q4ZHzpump",           # Long Term scenario
                     #   "GYTd9XbZTfwicCV28LGkwiDF4DgpXTTAi2UeCajfpump",
                     #   "hV7MQkCpjvuTTnPJXPhPXzvmtMxk8A8ct1KPiRMpump",
                     #   "UL1jwqh3ARmdNTE5qUQyaXHDcrAZ988GZ6tp21Epump",
                     #   "5e41GfrQwTP74LgGt6WP9kw6xa1jQhAERCjnFKf74y52",
-                      "FS4xcBxLJbrrdXE1R6zHvKw8no4zrQn2rRFuczvepump",           # dying scenario - good for testing
-                      "9YnfbEaXPaPmoXnKZFmNH8hzcLyjbRf56MQP7oqGpump",             # flat scenario
+                    #   "FS4xcBxLJbrrdXE1R6zHvKw8no4zrQn2rRFuczvepump",           # dying scenario - good for testing
+                    #   "9YnfbEaXPaPmoXnKZFmNH8hzcLyjbRf56MQP7oqGpump",             # flat scenario
                     #   "2yFiCwdLiUfxq9PcNXQvu16QdgBFniCJP8P8gEXNpump",
                     #   "H4phNbsqjV5rqk8u6FUACTLB6rNZRTAPGnBb8KXJpump",             # 12000 interval long term scenario
                     #   "9eXC6W3ZKnkNnCr9iENExRLJDYfPGLbc4m6qfJzJpump",
-                      "2TUQ21D87yrbZM1F3RB93sbkiGXeTTfkb8wWqG2ipump",
-                      "9pViBf84zD4ncn8Mj8rtdtojnRkxBpibPEjbaGW6pump",
+                    #   "2TUQ21D87yrbZM1F3RB93sbkiGXeTTfkb8wWqG2ipump",
+                    #   "9pViBf84zD4ncn8Mj8rtdtojnRkxBpibPEjbaGW6pump",
+                    # "3rdCUNNgj52frYdp3cJLwQ6xzJibjyjsPCtNMRUDpump",
+                    "EQf2LYaw4zV3hb2UK5kCUSgFrLRJqUAaeVA9rMypump",
                     ]  
 
 
@@ -57,10 +59,10 @@ async def main():
         await task_manager.add_token(user_id, testing_mode, token, wallet)
 
     # Example: Dynamically add/remove tokens
-    await asyncio.sleep(10)  # Run for 10 seconds
-    await task_manager.add_token(user_id, testing_mode, "NEW_TOKEN", wallet)
-    await asyncio.sleep(10)
-    await task_manager.remove_token(user_id, initial_tokens[0])
+    # await asyncio.sleep(10)  # Run for 10 seconds
+    # await task_manager.add_token(user_id, testing_mode, "NEW_TOKEN", wallet)
+    # await asyncio.sleep(10)
+    # await task_manager.remove_token(user_id, initial_tokens[0])
 
     # Keep running indefinitely (or until interrupted)
     try:

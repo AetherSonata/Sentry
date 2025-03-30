@@ -194,33 +194,51 @@ class IndicatorAnalyzer:
                 crossovers[orig_idx] = 0  # Bearish crossover
 
         return crossovers
-        
-    def calculate_bollinger_bands(self, interval, sma_period=20, std_dev_factor=2):
+            
+    def calculate_bollinger_bands(self, interval, sma_period=20, std_dev_factor=2, sma=None):
         """
         Calculate Bollinger Bands for a given interval, SMA period, and standard deviation factor.
+        Optionally, an externally calculated SMA can be provided.
 
         Args:
             interval (str): The time interval (e.g., '1m', '5m').
             sma_period (int, optional): The period for the SMA (middle band). Defaults to 20.
             std_dev_factor (float, optional): The number of standard deviations for the bands. Defaults to 2.
+            sma (float, optional): Externally calculated SMA value. If provided, it will be used instead of calculating it.
 
         Returns:
-            dict or None: Dictionary with 'middle_band', 'upper_band', and 'lower_band', or None if insufficient data.
+            dict: Dictionary with 'middle_band', 'upper_band', and 'lower_band'. 
+                Values are set to None if the calculation cannot be performed due to invalid interval or insufficient data.
         """
+        # Check if the interval is valid
         if interval not in self.available_intervals:
-            return None
+            return {'middle_band': None, 'upper_band': None, 'lower_band': None}
 
+        # Calculate the step size based on the interval relative to the minimum interval
         step = self.available_intervals[interval] // self.available_intervals[self.min_interval]
+        
+        # Get the latest prices for the specified period, adjusted by the step
         prices = list(self.price_data)[-sma_period * step::step]
 
+        # Ensure we have enough data
         if len(prices) < sma_period:
-            return None
+            return {'middle_band': None, 'upper_band': None, 'lower_band': None}
 
+        # Extract the price values into a pandas Series
         price_series = pd.Series([x["value"] for x in prices])
-        sma = price_series.mean()
-        std_dev = price_series.std()  # Uses sample standard deviation (ddof=1) by default
+
+        # Use provided SMA or calculate it
+        if sma is None:
+            sma = price_series.mean()
+
+        # Calculate the standard deviation of the price series
+        std_dev = price_series.std()  # Uses sample standard deviation by default
+
+        # Calculate the upper and lower bands
         upper_band = sma + (std_dev_factor * std_dev)
         lower_band = sma - (std_dev_factor * std_dev)
+
+        # Return the Bollinger Bands as a dictionary
         return {
             'middle_band': sma,
             'upper_band': upper_band,
@@ -361,8 +379,69 @@ class IndicatorAnalyzer:
         else:
             return 0
         
+    def calculate_macd(self, interval, short_period=12, long_period=26, signal_period=9):
+        """
+        Calculate MACD, Signal line, and Histogram for a given interval.
 
-    def analyze_ma(self, )
+        Args:
+        interval (str): The time interval (e.g., '1m', '5m').
+        short_period (int, optional): Period for the short EMA. Defaults to 12.
+        long_period (int, optional): Period for the long EMA. Defaults to 26.
+        signal_period (int, optional): Period for the Signal line EMA. Defaults to 9.
+
+        Returns:
+        dict: Dictionary with 'macd', 'signal', and 'histogram', or None values if calculation fails.
+        """
+        if interval not in self.available_intervals:
+            # print(f"Invalid interval: {interval}. Available intervals: {self.available_intervals.keys()}")
+            return {'macd': None, 'signal': None, 'histogram': None}
+            
+
+        # Calculate the step size based on the interval
+        step = self.available_intervals[interval] // self.available_intervals[self.min_interval]
+
+        # Ensure we have enough data for the longest period
+        required_data_points = max(short_period, long_period, signal_period) * step
+        prices = list(self.price_data)[-required_data_points:]
+
+        if len(prices) < required_data_points:
+            # print(f"Insufficient data for MACD calculation. Required: {required_data_points}, Available: {len(prices)}")
+            return {'macd': None, 'signal': None, 'histogram': None}
+            
+        # Extract price values
+        price_series = pd.Series([x["value"] for x in prices])
+
+        # Calculate short and long EMAs
+        short_ema = price_series.ewm(span=short_period, adjust=False).mean().iloc[-1]
+        long_ema = price_series.ewm(span=long_period, adjust=False).mean().iloc[-1]
+
+        # Calculate MACD Line
+        macd_line = short_ema - long_ema
+
+        # To calculate the Signal Line, we need a series of MACD values
+        # Get enough data points to compute a series of MACD values
+        macd_series_data = list(self.price_data)[-signal_period * step:]
+        if len(macd_series_data) < signal_period * step:
+            return {'macd': macd_line, 'signal': None, 'histogram': None}
+
+        macd_series_prices = pd.Series([x["value"] for x in macd_series_data])
+        short_ema_series = macd_series_prices.ewm(span=short_period, adjust=False).mean()
+        long_ema_series = macd_series_prices.ewm(span=long_period, adjust=False).mean()
+        macd_series = short_ema_series - long_ema_series
+
+        # Calculate Signal Line (9-period EMA of MACD)
+        signal_line = macd_series.ewm(span=signal_period, adjust=False).mean().iloc[-1]
+
+        # Calculate Histogram
+        histogram = macd_line - signal_line
+
+        return {
+        'macd': macd_line,
+        'signal': signal_line,
+        'histogram': histogram
+        }
+        
+
     
 def normalize_ema_relative_to_price(ema_value, price):
     """Normalize EMA value relative to current price."""

@@ -6,22 +6,25 @@ class PricePlotter:
         self.trading_engine = trading_engine
         self.initial_data_size = len(trading_engine.price_data)
         
-        # Initialize figure with three subplots
+        # Initialize figure with four subplots
         plt.ion()
         self.fig = plt.figure(figsize=(12, 12))
         
-        # Main price plot (unchanged size)
-        self.ax_price = self.fig.add_subplot(311)
-        # Slimmer RSI subplot
-        self.ax_rsi = self.fig.add_subplot(312, sharex=self.ax_price)
-        # New combined plot (same size as main plot)
-        self.ax_combined = self.fig.add_subplot(313, sharex=self.ax_price)
+        # Main price plot
+        self.ax_price = self.fig.add_subplot(411)
+        # RSI subplot
+        self.ax_rsi = self.fig.add_subplot(412, sharex=self.ax_price)
+        # Combined plot
+        self.ax_combined = self.fig.add_subplot(413, sharex=self.ax_price)
+        # MACD plot
+        self.ax_macd = self.fig.add_subplot(414, sharex=self.ax_price)
         
         # Adjust subplot positions
-        self.fig.subplots_adjust(hspace=0.3)  # Small gap after RSI
+        self.fig.subplots_adjust(hspace=0.3)  # Small gap between subplots
         self.ax_price.set_position([0.1, 0.75, 0.8, 0.2])     # Top: Price, height 0.2
-        self.ax_rsi.set_position([0.1, 0.66, 0.8, 0.08])      # RSI, slimmer at 0.08
-        self.ax_combined.set_position([0.1, 0.40, 0.8, 0.2])  # Bottom: Combined, height 0.2
+        self.ax_rsi.set_position([0.1, 0.62, 0.8, 0.08])      # RSI, height 0.08
+        self.ax_combined.set_position([0.1, 0.44, 0.8, 0.15]) # Combined, height 0.15
+        self.ax_macd.set_position([0.1, 0.26, 0.8, 0.15])     # MACD, height 0.15
         
         # Backtesting indices
         self.targets_index = None
@@ -37,6 +40,7 @@ class PricePlotter:
         self._plot_price(time, metrics, include_backtest=False)
         self._plot_rsi(time, metrics)
         self._plot_combined(time, metrics, include_backtest=False)
+        self._plot_macd(time, metrics)
         
         self._customize_plots('Simulated Price Environment')
         plt.draw()
@@ -56,6 +60,7 @@ class PricePlotter:
         self._plot_price(time, metrics, include_backtest=include_backtest)
         self._plot_rsi(time, metrics)
         self._plot_combined(time, metrics, include_backtest=include_backtest)
+        self._plot_macd(time, metrics)
         
         self._customize_plots('Complete Solana Token Price Action')
         plt.show()
@@ -72,6 +77,7 @@ class PricePlotter:
         self.ax_price.clear()
         self.ax_rsi.clear()
         self.ax_combined.clear()
+        self.ax_macd.clear()
 
     def _plot_price(self, time, metrics, include_backtest=False):
         """Plot price data with support/resistance zones, confidence underlay, and optional backtesting points"""
@@ -135,7 +141,7 @@ class PricePlotter:
         self.ax_rsi.axhline(y=30, color='g', linestyle='--', alpha=0.3)
 
     def _plot_combined(self, time, metrics, include_backtest=False):
-        """Plot combined price action with EMA values and crossovers"""
+        """Plot combined price action with EMA values, Bollinger Bands, SMAs, and crossovers"""
         prices = [m['price'] for m in metrics]
         
         # Plot RSI divergence crossovers first (background, lowest zorder)
@@ -180,6 +186,24 @@ class PricePlotter:
         self.ax_combined.plot(time, ema_medium, '-', color='orange', label='EMA Medium', alpha=0.8, zorder=2)
         self.ax_combined.plot(time, ema_long, '-', color='purple', label='EMA Long', alpha=0.8, zorder=2)
         self.ax_combined.plot(time, ema_longterm, '-', color='green', label='EMA Long-term', alpha=0.8, zorder=2)
+        
+        # Plot Bollinger Bands
+        upper_bands = [m['boilinger_bands']['upper'] for m in metrics]
+        middle_bands = [m['boilinger_bands']['middle'] for m in metrics]
+        lower_bands = [m['boilinger_bands']['lower'] for m in metrics]
+        
+        self.ax_combined.plot(time, upper_bands, '--', color='red', label='BB Upper', alpha=0.8, zorder=2)
+        self.ax_combined.plot(time, middle_bands, '-', color='black', label='BB Middle (SMA)', alpha=0.8, zorder=2)
+        self.ax_combined.plot(time, lower_bands, '--', color='green', label='BB Lower', alpha=0.8, zorder=2)
+        
+        # Plot additional SMAs
+        sma_short = [m['sma']['short'] for m in metrics]
+        sma_medium = [m['sma']['medium'] for m in metrics]
+        sma_long = [m['sma']['long'] for m in metrics]
+        
+        self.ax_combined.plot(time, sma_short, '-', color='cyan', label='SMA Short', alpha=0.5, zorder=2)
+        self.ax_combined.plot(time, sma_medium, '-', color='magenta', label='SMA Medium', alpha=0.5, zorder=2)
+        self.ax_combined.plot(time, sma_long, '-', color='yellow', label='SMA Long', alpha=0.5, zorder=2)
         
         # Plot price action last (foreground, highest zorder)
         if self.initial_data_size > 0:
@@ -230,6 +254,28 @@ class PricePlotter:
         plot_zone(key_zone_5, 'brown', 'key_zone_5')
         plot_zone(key_zone_6, 'pink', 'key_zone_6')
 
+
+    def _plot_macd(self, time, metrics):
+        """Plot MACD line, Signal line, and Histogram"""
+        # Extract MACD data, replacing None with np.nan
+        macd_line = [m['macd']['macd'] if m['macd']['macd'] is not None else np.nan for m in metrics]
+        signal_line = [m['macd']['signal'] if m['macd']['signal'] is not None else np.nan for m in metrics]
+        histogram = [m['macd']['histogram'] if m['macd']['histogram'] is not None else np.nan for m in metrics]
+        
+        # Plot histogram with conditional colors
+        colors = ['lightblue' if h > 0 else 'pink' if h < 0 else 'gray' for h in histogram]
+        self.ax_macd.bar(time, histogram, color=colors, alpha=0.5)
+        
+        # Plot MACD line
+        self.ax_macd.plot(time, macd_line, color='purple', label='MACD')
+        
+        # Plot Signal line
+        self.ax_macd.plot(time, signal_line, color='yellow', label='Signal')
+        
+        # Add zero line
+        self.ax_macd.axhline(0, color='gray', linestyle='--')
+
+
     def _customize_plots(self, title):
         """Apply common styling to all plots"""
         self.ax_price.set_ylabel('Price')
@@ -246,3 +292,8 @@ class PricePlotter:
         self.ax_combined.set_ylabel('Price/EMA')
         self.ax_combined.legend()
         self.ax_combined.grid(True, linestyle='--', alpha=0.7)
+
+        self.ax_macd.set_xlabel('Time (index)')
+        self.ax_macd.set_ylabel('MACD')
+        self.ax_macd.legend()
+        self.ax_macd.grid(True, linestyle='--', alpha=0.7)
