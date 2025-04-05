@@ -6,27 +6,30 @@ class PricePlotter:
         self.trading_engine = trading_engine
         self.initial_data_size = len(trading_engine.price_data)
         
-        # Initialize figure with four subplots
+        # Initialize figure with five subplots
         plt.ion()
-        self.fig = plt.figure(figsize=(12, 12))
+        self.fig = plt.figure(figsize=(12, 15))
         
-        # Main price plot
-        self.ax_price = self.fig.add_subplot(411)
-        # RSI subplot
-        self.ax_rsi = self.fig.add_subplot(412, sharex=self.ax_price)
-        # Combined plot
-        self.ax_combined = self.fig.add_subplot(413, sharex=self.ax_price)
-        # MACD plot
-        self.ax_macd = self.fig.add_subplot(414, sharex=self.ax_price)
+        # Main price plot (larger)
+        self.ax_price = self.fig.add_subplot(511)
+        # RSI subplot (slim)
+        self.ax_rsi = self.fig.add_subplot(512, sharex=self.ax_price)
+        # Combined plot (larger)
+        self.ax_combined = self.fig.add_subplot(513, sharex=self.ax_price)
+        # MACD subplot (slim, same size as RSI)
+        self.ax_macd = self.fig.add_subplot(514, sharex=self.ax_price)
+        # New Fibonacci levels subplot (slim, below MACD)
+        self.ax_fib = self.fig.add_subplot(515, sharex=self.ax_price)
         
         # Adjust subplot positions
-        self.fig.subplots_adjust(hspace=0.3)  # Small gap between subplots
-        self.ax_price.set_position([0.1, 0.75, 0.8, 0.2])     # Top: Price, height 0.2
-        self.ax_rsi.set_position([0.1, 0.62, 0.8, 0.08])      # RSI, height 0.08
-        self.ax_combined.set_position([0.1, 0.44, 0.8, 0.15]) # Combined, height 0.15
-        self.ax_macd.set_position([0.1, 0.26, 0.8, 0.15])     # MACD, height 0.15
+        self.fig.subplots_adjust(hspace=0.3)
+        self.ax_price.set_position([0.1, 0.75, 0.8, 0.2])     # Price: height 0.2 (larger)
+        self.ax_rsi.set_position([0.1, 0.66, 0.8, 0.08])      # RSI: height 0.08 (slim)
+        self.ax_combined.set_position([0.1, 0.44, 0.8, 0.2])  # Combined: height 0.2 (larger)
+        self.ax_macd.set_position([0.1, 0.35, 0.8, 0.08])     # MACD: height 0.08 (slim, matches RSI)
+        self.ax_fib.set_position([0.1, 0.26, 0.8, 0.08])      # Fibonacci: height 0.08 (slim, below MACD)
         
-        # Backtesting indices
+        # Backtesting indices (if applicable)
         self.targets_index = None
         self.similars_index = None
         self.plot_backtest = False
@@ -78,6 +81,7 @@ class PricePlotter:
         self.ax_rsi.clear()
         self.ax_combined.clear()
         self.ax_macd.clear()
+        self.ax_fib.clear()
 
     def _plot_price(self, time, metrics, include_backtest=False):
         """Plot price data with support/resistance zones, confidence underlay, and optional backtesting points"""
@@ -275,6 +279,23 @@ class PricePlotter:
         # Add zero line
         self.ax_macd.axhline(0, color='gray', linestyle='--')
 
+    def _plot_fibonacci_levels(self, time, prices):
+        """Plot Fibonacci levels in the new subplot."""
+        # Access Fibonacci levels from metric_collector.fibonacci_analyzer
+        fib_levels = self.trading_engine.metric_collector.fibonacci_analyzer.fib_levels
+        
+        if not fib_levels:
+            return
+
+        # Plot price for reference
+        self.ax_fib.plot(time, prices, 'b-', label='Price')
+
+        # Plot Fibonacci levels as horizontal lines
+        for level, price in fib_levels.items():
+            self.ax_fib.axhline(y=price, color='purple', linestyle='--', alpha=0.5, label=f'Fib {level}')
+
+        self.ax_fib.legend()
+
 
     def _customize_plots(self, title):
         """Apply common styling to all plots"""
@@ -288,12 +309,15 @@ class PricePlotter:
         self.ax_rsi.grid(True, linestyle='--', alpha=0.7)
         self.ax_rsi.set_ylim(0, 100)
         
-        self.ax_combined.set_xlabel('Time (index)')
         self.ax_combined.set_ylabel('Price/EMA')
         self.ax_combined.legend()
         self.ax_combined.grid(True, linestyle='--', alpha=0.7)
-
-        self.ax_macd.set_xlabel('Time (index)')
+        
         self.ax_macd.set_ylabel('MACD')
         self.ax_macd.legend()
         self.ax_macd.grid(True, linestyle='--', alpha=0.7)
+        
+        self.ax_fib.set_xlabel('Time (index)')
+        self.ax_fib.set_ylabel('Price/Fib Levels')
+        self.ax_fib.legend()
+        self.ax_fib.grid(True, linestyle='--', alpha=0.7)
