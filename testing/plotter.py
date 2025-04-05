@@ -27,7 +27,7 @@ class PricePlotter:
         self.ax_rsi.set_position([0.1, 0.66, 0.8, 0.08])      # RSI: height 0.08 (slim)
         self.ax_combined.set_position([0.1, 0.44, 0.8, 0.2])  # Combined: height 0.2 (larger)
         self.ax_macd.set_position([0.1, 0.35, 0.8, 0.08])     # MACD: height 0.08 (slim, matches RSI)
-        self.ax_fib.set_position([0.1, 0.26, 0.8, 0.08])      # Fibonacci: height 0.08 (slim, below MACD)
+        self.ax_fib.set_position([0.1, 0.15, 0.8, 0.2])      # Fibonacci: height 0.08 (slim, below MACD)
         
         # Backtesting indices (if applicable)
         self.targets_index = None
@@ -44,6 +44,7 @@ class PricePlotter:
         self._plot_rsi(time, metrics)
         self._plot_combined(time, metrics, include_backtest=False)
         self._plot_macd(time, metrics)
+        self._plot_fibonacci_levels(time, metrics, start_position=0)
         
         self._customize_plots('Simulated Price Environment')
         plt.draw()
@@ -64,6 +65,7 @@ class PricePlotter:
         self._plot_rsi(time, metrics)
         self._plot_combined(time, metrics, include_backtest=include_backtest)
         self._plot_macd(time, metrics)
+        self._plot_fibonacci_levels(time, metrics, start_position=start_position)
         
         self._customize_plots('Complete Solana Token Price Action')
         plt.show()
@@ -85,7 +87,6 @@ class PricePlotter:
 
     def _plot_price(self, time, metrics, include_backtest=False):
         """Plot price data with support/resistance zones, confidence underlay, and optional backtesting points"""
-        # [Unchanged from original - keeping main plot functionality]
         prices = [m['price'] for m in metrics]
         
         if self.initial_data_size > 0:
@@ -229,8 +230,7 @@ class PricePlotter:
         self.ax_combined.set_ylim(price_min - padding, price_max + padding)
 
     def _plot_zones(self, metric):
-        """Plot support and resistance zones from metrics - unchanged"""
-        # [Unchanged from original]
+        """Plot support and resistance zones from metrics"""
         current_price = metric['price']
         
         key_zone_1 = self.trading_engine.metric_collector.key_zone_1
@@ -258,7 +258,6 @@ class PricePlotter:
         plot_zone(key_zone_5, 'brown', 'key_zone_5')
         plot_zone(key_zone_6, 'pink', 'key_zone_6')
 
-
     def _plot_macd(self, time, metrics):
         """Plot MACD line, Signal line, and Histogram"""
         # Extract MACD data, replacing None with np.nan
@@ -279,23 +278,84 @@ class PricePlotter:
         # Add zero line
         self.ax_macd.axhline(0, color='gray', linestyle='--')
 
-    def _plot_fibonacci_levels(self, time, prices):
-        """Plot Fibonacci levels in the new subplot."""
-        # Access Fibonacci levels from metric_collector.fibonacci_analyzer
-        fib_levels = self.trading_engine.metric_collector.fibonacci_analyzer.fib_levels
-        
-        if not fib_levels:
-            return
+    def _plot_fibonacci_price(self, time, metrics):
+        """
+        Plot the price action in the Fibonacci subplot.
 
-        # Plot price for reference
+        Args:
+            time (list): List of time indices.
+            metrics (list): List of metric dictionaries containing price data.
+        """
+        # Extract price data from metrics
+        prices = [m['price'] for m in metrics]
+
+        # Plot price action
         self.ax_fib.plot(time, prices, 'b-', label='Price')
 
-        # Plot Fibonacci levels as horizontal lines
-        for level, price in fib_levels.items():
-            self.ax_fib.axhline(y=price, color='purple', linestyle='--', alpha=0.5, label=f'Fib {level}')
+        # Adjust y-axis to fit price
+        price_min, price_max = min(prices), max(prices)
+        padding = (price_max - price_min) * 0.1  # 10% padding
+        self.ax_fib.set_ylim(price_min - padding, price_max + padding)
 
+    def _plot_fibonacci_zones(self, time, start_position=0):
+        """
+        Overlay Fibonacci levels for each arc as horizontal lines from start to end.
+
+        Args:
+            time (list): List of time indices.
+            start_position (int): The starting index of the sliced data (for static mode).
+        """
+        # Get all completed arcs
+        arcs = self.trading_engine.metric_collector.fibonacci_analyzer.get_all_arcs()
+        print(f"Number of completed arcs: {len(arcs)}")
+        print(f"Current arc: {self.trading_engine.metric_collector.fibonacci_analyzer.current_arc}")
+
+        # Track which Fibonacci levels have been labeled to avoid legend clutter
+        labeled_levels = set()
+
+        # Plot Fibonacci levels for each completed arc
+        for arc in arcs:
+            start_index = arc['start_index'] - start_position
+            end_index = arc['end_index'] - start_position
+            fib_levels = arc['fib_levels']
+
+            # Ensure indices are within the time range
+            if 0 <= start_index < len(time) and 0 <= end_index < len(time):
+                # Draw horizontal lines for each Fibonacci level
+                for level, price in fib_levels.items():
+                    label = f'Fib {level}' if level not in labeled_levels else None
+                    self.ax_fib.hlines(y=price, xmin=time[start_index], xmax=time[end_index],
+                                      color='purple', linestyle='--', alpha=0.5, label=label)
+                    if label:
+                        labeled_levels.add(level)
+
+        # Plot Fibonacci levels for the current arc (if it exists)
+        current_arc = self.trading_engine.metric_collector.fibonacci_analyzer.current_arc
+        if current_arc and 'start_index' in current_arc:
+            start_index = current_arc['start_index'] - start_position
+            end_index = len(time) - 1  # Current arc extends to the latest time point
+            fib_levels = self.trading_engine.metric_collector.fibonacci_analyzer.get_current_levels()
+
+            if 0 <= start_index < len(time) and 0 <= end_index < len(time):
+                for level, price in fib_levels.items():
+                    label = f'Fib {level}' if level not in labeled_levels else None
+                    self.ax_fib.hlines(y=price, xmin=time[start_index], xmax=time[end_index],
+                                      color='purple', linestyle='--', alpha=0.5, label=label)
+                    if label:
+                        labeled_levels.add(level)
+
+    def _plot_fibonacci_levels(self, time, metrics, start_position=0):
+        """
+        Plot the Fibonacci subplot by first plotting the price and then overlaying Fibonacci levels.
+
+        Args:
+            time (list): List of time indices.
+            metrics (list): List of metric dictionaries containing price data.
+            start_position (int): The starting index of the sliced data (for static mode).
+        """
+        self._plot_fibonacci_price(time, metrics)
+        self._plot_fibonacci_zones(time, start_position)
         self.ax_fib.legend()
-
 
     def _customize_plots(self, title):
         """Apply common styling to all plots"""
