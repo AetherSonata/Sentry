@@ -4,14 +4,13 @@ import numpy as np
 class FibonacciAnalyzer:
     def __init__(self, metric_collector):
         """
-        Initialize the DrawdownAnalyzer.
+        Initialize the FibonacciAnalyzer.
 
         Args:
             metric_collector: The metric_collector object providing interval and price_data.
         """
         self.metric_collector = metric_collector
         self.interval = metric_collector.interval  # Get interval from metric_collector
-        self.price_data = metric_collector.price_data  # Get price_data from metric_collector
 
         # State variables
         self.current_arc = None  # {'low': price, 'low_index': index, 'high': price, 'high_index': index}
@@ -28,7 +27,7 @@ class FibonacciAnalyzer:
         Returns:
             float: The current ATR value, or None if insufficient data.
         """
-        prices = list(self.price_data)[-atr_period:]
+        prices = list(self.metric_collector.price_data)[-atr_period:]
 
         if len(prices) < atr_period:
             return None
@@ -39,21 +38,27 @@ class FibonacciAnalyzer:
         atr = price_changes.rolling(window=atr_period).mean().iloc[-1]
         return atr
 
-    def detect_price_arc(self, new_price, new_index, atr_period=14, atr_multiplier=2):
+    def detect_price_arc(self, atr_period=14, atr_multiplier=2):
         """
-        Detect price arcs and update Fibonacci levels. The lowest price point is always the new low.
+        Detect price arcs and update Fibonacci levels using the latest price from metric_collector.price_data.
 
         Args:
-            new_price (float): The latest price.
-            new_index (int): The index of the latest price in price_data.
             atr_period (int): Period for ATR calculation (default: 14).
             atr_multiplier (float): Multiplier for ATR to define significant drawdowns (default: 2).
         """
+        price_data = self.metric_collector.price_data
+        if not price_data:
+            return
+
         atr = self.calculate_atr(atr_period)
         if atr is None:
             return
 
-        # If no current arc, start one with the first price as the low
+        # Get the latest price and index from price_data
+        new_price = price_data[-1]["value"]
+        new_index = len(price_data) - 1
+
+        # If no current arc, start one with the latest price as the low
         if not self.current_arc:
             self.current_arc = {
                 'low': new_price,
@@ -93,14 +98,13 @@ class FibonacciAnalyzer:
                     'high_index': new_index
                 }
 
-        # Update Fibonacci levels and 90% drawdown
+        # Update Fibonacci levels
         self.update_fibonacci_levels()
 
     def update_fibonacci_levels(self):
-        """Calculate Fibonacci retracement levels and 90% drawdown from the current arc's high."""
+        """Calculate Fibonacci retracement levels from the current arc's high."""
         if not self.current_arc:
             self.fib_levels = {}
-            self.drawdown_90 = None
             return
 
         high = self.current_arc['high']
@@ -117,20 +121,16 @@ class FibonacciAnalyzer:
             '90.0%': high - range_size * 0.9,
         }
 
-
     def get_current_levels(self):
-        """Return the current Fibonacci levels and 90% drawdown level."""
-        return self.fib_levels, self.drawdown_90
+        """Return the current Fibonacci levels."""
+        return self.fib_levels
 
-    def update(self, new_price, new_index, atr_period=14, atr_multiplier=2):
+    def recalculate(self, atr_period=14, atr_multiplier=2):
         """
-        Update the analyzer with a new price point.
+        Recalculate the Fibonacci levels using the latest price data from metric_collector.
 
         Args:
-            new_price (float): The latest price.
-            new_index (int): The index of the latest price in price_data.
             atr_period (int): Period for ATR calculation (default: 14).
             atr_multiplier (float): Multiplier for ATR to define significant drawdowns (default: 2).
         """
-        self.price_data.append({"value": new_price})
-        self.detect_price_arc(new_price, new_index, atr_period, atr_multiplier)
+        self.detect_price_arc(atr_period, atr_multiplier)

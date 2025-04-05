@@ -139,6 +139,8 @@ class MetricCollector:
         macd = self.indicator_analyzer.calculate_macd("1h")
         # print(macd)
 
+        self.fibonacci_analyzer(new_price, new_index, atr_period=14, atr_multiplier=2)
+
         # Build and return metrics dict
         return {
             "price": current_price,
