@@ -1,62 +1,136 @@
+import pandas as pd
 import numpy as np
 
 class FibonacciAnalyzer:
-    def __init__(self, interval, price_data=[]):
-        self.interval = interval  # e.g., '5m'
-        self.price_data = price_data  # List of {'value': float} entries
-        self.last_ath_idx = -1  # Index of the last all-time high
-        self.fib_time_indices = []  # List of Fibonacci time reversal indices
-
-    def append_price_data(self, price_data):
-        """Append new price data and check Fibonacci reversal."""
-        self.price_data.append(price_data)
-        self.check_fibonacci_time_update()  # Update on every append
-
-    def check_fibonacci_time_update(self):
+    def __init__(self, metric_collector):
         """
-        Check for ATH and update Fibonacci time indices based on internal current step.
+        Initialize the DrawdownAnalyzer.
+
+        Args:
+            metric_collector: The metric_collector object providing interval and price_data.
+        """
+        self.metric_collector = metric_collector
+        self.interval = metric_collector.interval  # Get interval from metric_collector
+        self.price_data = metric_collector.price_data  # Get price_data from metric_collector
+
+        # State variables
+        self.current_arc = None  # {'low': price, 'low_index': index, 'high': price, 'high_index': index}
+        self.fib_levels = {}  # Current Fibonacci levels
+        self.arcs = []  # List of completed arcs
+
+    def calculate_atr(self, atr_period=14):
+        """
+        Calculate the Average True Range (ATR).
+
+        Args:
+            atr_period (int): Period for ATR calculation (default: 14).
 
         Returns:
-            int or None: The current step if it matches a Fibonacci index, None otherwise.
+            float: The current ATR value, or None if insufficient data.
         """
-        if len(self.price_data) < 2:  # Need at least 2 points to analyze
+        prices = list(self.price_data)[-atr_period:]
+
+        if len(prices) < atr_period:
             return None
 
-        # Derive current step from price_data length (index of latest entry)
-        current_step = len(self.price_data) - 1
+        # Approximate ATR using absolute price changes (since we only have "value")
+        close_prices = pd.Series([x["value"] for x in prices])
+        price_changes = close_prices.diff().abs()
+        atr = price_changes.rolling(window=atr_period).mean().iloc[-1]
+        return atr
 
-        # Extract current price
-        current_price = self.price_data[-1]['value']
-        prices = [entry['value'] for entry in self.price_data]
-
-        # Check if current price is a new ATH
-        if current_price > max(prices[:-1], default=0):  # Compare with all previous prices
-            self.last_ath_idx = current_step
-            # Calculate Fibonacci indices starting from the ATH as the first step
-            self._calculate_fibonacci_time_reversal()
-
-        # Return the current step if it matches a Fibonacci index
-        if current_step in self.fib_time_indices:
-            return current_step
-        return None
-
-    def _calculate_fibonacci_time_reversal(self):
+    def detect_price_arc(self, new_price, new_index, atr_period=14, atr_multiplier=2):
         """
-        Calculate and store Fibonacci time reversal indices starting from the last ATH as step 0.
+        Detect price arcs and update Fibonacci levels. The lowest price point is always the new low.
+
+        Args:
+            new_price (float): The latest price.
+            new_index (int): The index of the latest price in price_data.
+            atr_period (int): Period for ATR calculation (default: 14).
+            atr_multiplier (float): Multiplier for ATR to define significant drawdowns (default: 2).
         """
-        if self.last_ath_idx == -1:  # No ATH yet
-            self.fib_time_indices = []
+        atr = self.calculate_atr(atr_period)
+        if atr is None:
             return
 
-        # Fibonacci sequence for time intervals (starting from 0 at the ATH)
-        fib_intervals = [0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144]  # ATH is 0
-        
-        # Calculate Fibonacci time indices starting from last_ath_idx
-        self.fib_time_indices = [self.last_ath_idx + interval for interval in fib_intervals]
-        
-        # Filter out indices beyond current data length
-        prices = len(self.price_data)
-        self.fib_time_indices = [idx for idx in self.fib_time_indices if idx < prices]
+        # If no current arc, start one with the first price as the low
+        if not self.current_arc:
+            self.current_arc = {
+                'low': new_price,
+                'low_index': new_index,
+                'high': new_price,
+                'high_index': new_index
+            }
+            self.update_fibonacci_levels()
+            return
 
-    def calculate_fibonacci_retest(self):
-        pass
+        # Update the low if the new price is lower
+        if new_price < self.current_arc['low']:
+            # End the current arc
+            self.arcs.append(self.current_arc.copy())
+            # Start a new arc with the new low
+            self.current_arc = {
+                'low': new_price,
+                'low_index': new_index,
+                'high': new_price,
+                'high_index': new_index
+            }
+        # Update the high if the new price is higher
+        elif new_price > self.current_arc['high']:
+            self.current_arc['high'] = new_price
+            self.current_arc['high_index'] = new_index
+        # Check if the arc has ended (significant drop from high)
+        else:
+            drawdown = (self.current_arc['high'] - new_price) / self.current_arc['high']
+            if drawdown > atr_multiplier * atr / self.current_arc['high']:
+                # End the current arc
+                self.arcs.append(self.current_arc.copy())
+                # Start a new arc with the new low
+                self.current_arc = {
+                    'low': new_price,
+                    'low_index': new_index,
+                    'high': new_price,
+                    'high_index': new_index
+                }
+
+        # Update Fibonacci levels and 90% drawdown
+        self.update_fibonacci_levels()
+
+    def update_fibonacci_levels(self):
+        """Calculate Fibonacci retracement levels and 90% drawdown from the current arc's high."""
+        if not self.current_arc:
+            self.fib_levels = {}
+            self.drawdown_90 = None
+            return
+
+        high = self.current_arc['high']
+        low = self.current_arc['low']
+        range_size = high - low
+
+        # Fibonacci levels
+        self.fib_levels = {
+            '23.6%': high - range_size * 0.236,
+            '38.2%': high - range_size * 0.382,
+            '50%': high - range_size * 0.5,
+            '61.8%': high - range_size * 0.618,
+            '78.6%': high - range_size * 0.786,
+            '90.0%': high - range_size * 0.9,
+        }
+
+
+    def get_current_levels(self):
+        """Return the current Fibonacci levels and 90% drawdown level."""
+        return self.fib_levels, self.drawdown_90
+
+    def update(self, new_price, new_index, atr_period=14, atr_multiplier=2):
+        """
+        Update the analyzer with a new price point.
+
+        Args:
+            new_price (float): The latest price.
+            new_index (int): The index of the latest price in price_data.
+            atr_period (int): Period for ATR calculation (default: 14).
+            atr_multiplier (float): Multiplier for ATR to define significant drawdowns (default: 2).
+        """
+        self.price_data.append({"value": new_price})
+        self.detect_price_arc(new_price, new_index, atr_period, atr_multiplier)

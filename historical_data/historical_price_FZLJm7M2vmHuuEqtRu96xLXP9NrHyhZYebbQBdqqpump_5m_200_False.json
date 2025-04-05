@@ -1,0 +1,391 @@
+{
+    "data": {
+        "items": [
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743351600,
+                "value": 1.630710662773774e-05
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743351900,
+                "value": 1.7762540899695687e-05
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743352200,
+                "value": 2.4380738316717704e-05
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743352500,
+                "value": 3.515870266546474e-05
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743352800,
+                "value": 3.6321574571018314e-05
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743353100,
+                "value": 3.769093345046113e-05
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743353400,
+                "value": 8.114121159497834e-05
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743353700,
+                "value": 0.00010112971537591707
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743354000,
+                "value": 0.00014591256059017052
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743354300,
+                "value": 6.448345725868563e-05
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743354600,
+                "value": 6.228302338351367e-05
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743354900,
+                "value": 6.935142620181082e-05
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743355200,
+                "value": 0.00011986966165038769
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743355500,
+                "value": 0.00014534374118511392
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743355800,
+                "value": 0.00010756843761094134
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743356100,
+                "value": 0.00015253642917128674
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743356400,
+                "value": 5.921321104372041e-05
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743356700,
+                "value": 9.301268569487018e-05
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743357000,
+                "value": 7.015927114604392e-05
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743357300,
+                "value": 5.0143430433470887e-05
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743357600,
+                "value": 5.190719313325319e-05
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743357900,
+                "value": 8.464437505558881e-05
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743358200,
+                "value": 7.680147836945388e-05
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743358500,
+                "value": 9.327510577996271e-05
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743358800,
+                "value": 8.441891435708025e-05
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743359100,
+                "value": 8.590228297217297e-05
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743359400,
+                "value": 0.00010134720802054963
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743359700,
+                "value": 0.00011540247511201884
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743360000,
+                "value": 0.00013901951594698898
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743360300,
+                "value": 0.0001345081548382666
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743360600,
+                "value": 0.00012985820989386268
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743360900,
+                "value": 0.00015074047111568074
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743361200,
+                "value": 0.0001341244522422409
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743361500,
+                "value": 0.00014434710336441142
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743361800,
+                "value": 0.0001326950882864282
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743362100,
+                "value": 0.00013023318119644616
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743362400,
+                "value": 0.00010967373855158781
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743362700,
+                "value": 9.145729479523514e-05
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743363000,
+                "value": 0.00010324031068362067
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743363300,
+                "value": 0.000116327035903569
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743363600,
+                "value": 0.00012717502993234354
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743363900,
+                "value": 0.00012683656659915623
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743364200,
+                "value": 0.00011475785196151133
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743364500,
+                "value": 0.00012823599887747925
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743364800,
+                "value": 0.00011604589395080627
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743365100,
+                "value": 0.00012061498698684248
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743365400,
+                "value": 0.0001168980239494675
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743365700,
+                "value": 9.761054713754638e-05
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743366000,
+                "value": 8.773796906763887e-05
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743366300,
+                "value": 7.61219103211455e-05
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743366600,
+                "value": 6.84518249532135e-05
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743366900,
+                "value": 8.998394432168608e-05
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743367200,
+                "value": 9.182299992171578e-05
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743367500,
+                "value": 0.00010587250710137559
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743367800,
+                "value": 9.259929989816428e-05
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743368100,
+                "value": 9.909612327139712e-05
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743368400,
+                "value": 0.00011259250181529698
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743368700,
+                "value": 9.8044553305429e-05
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743369000,
+                "value": 8.912307402064882e-05
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743369300,
+                "value": 8.040165460871736e-05
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743369600,
+                "value": 8.022921191426089e-05
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743369900,
+                "value": 9.103368404649822e-05
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743370200,
+                "value": 9.787386191135445e-05
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743370500,
+                "value": 9.495293187593187e-05
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743370800,
+                "value": 8.87253621658057e-05
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743371100,
+                "value": 7.810327800749531e-05
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743371400,
+                "value": 0.0001086933150802132
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743371700,
+                "value": 0.00011411330858209695
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743372000,
+                "value": 0.00012555346335339397
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743372300,
+                "value": 0.00012986929372612333
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743372600,
+                "value": 0.0001290526336118372
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743372900,
+                "value": 0.0001317307431160028
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743373200,
+                "value": 0.00012582074461355727
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743373500,
+                "value": 0.00012034116477125283
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743373800,
+                "value": 0.00010900482059200407
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743374100,
+                "value": 0.00010779358880727615
+            },
+            {
+                "address": "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump",
+                "unixTime": 1743374400,
+                "value": 0.00010625718265593887
+            }
+        ]
+    }
+}

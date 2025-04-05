@@ -20,7 +20,11 @@ TEST_TOKENS = [
                     #   "2TUQ21D87yrbZM1F3RB93sbkiGXeTTfkb8wWqG2ipump",
                     #   "9pViBf84zD4ncn8Mj8rtdtojnRkxBpibPEjbaGW6pump",
                     # "3rdCUNNgj52frYdp3cJLwQ6xzJibjyjsPCtNMRUDpump",
-                    "EQf2LYaw4zV3hb2UK5kCUSgFrLRJqUAaeVA9rMypump",
+                    # "EQf2LYaw4zV3hb2UK5kCUSgFrLRJqUAaeVA9rMypump",
+                    # "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump".
+
+                    #NEW TESTING TOKENS
+                     "FZqqsYT9pQwwaFEQPDPotk4gorwRgxzbVkNAG4MPpump"
                     ]  
 
 

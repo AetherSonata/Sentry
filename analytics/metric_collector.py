@@ -23,21 +23,20 @@ class MetricCollector:
         self.indicator_analyzer = IndicatorAnalyzer(self)
         self.chart_analyzer = ChartAnalyzer(interval)
         self.price_analyzer = PriceAnalytics()
-        self.fibonacci_analyzer = FibonacciAnalyzer(interval)
+        self.fibonacci_analyzer = FibonacciAnalyzer(self)
+        self.zone_analyzer = ZoneAnalyzer(self)
         self.confidence_calculator = ConfidenceCalculator(self,  
                                                           alpha=0.08, 
                                                           threshold=0.1, 
                                                           decay_rate=0.05)
         self.confidence_settings = self.confidence_calculator
-        self.zone_analyzer = ZoneAnalyzer(self)
+
 
 
     def add_new_price_point_and_calculate_metrics(self, new_price_point):
         self.price_data.append(new_price_point)
-        # self.indicator_analyzer.append_price(new_price_point)
         self.chart_analyzer.append_price_data(new_price_point)
         self.price_analyzer.append(new_price_point)
-        
         self.metrics.append(self.collect_all_metrics_for_current_point(len(self.price_data) - 1))
         
 
