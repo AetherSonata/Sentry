@@ -79,12 +79,14 @@ class FibonacciAnalyzer:
             low = self.current_arc['low']
             range_size = high - low
             fib_levels = {
+                '0%': high,  # Highest point of the arc
                 '23.6%': high - range_size * 0.236,
                 '38.2%': high - range_size * 0.382,
                 '50%': high - range_size * 0.5,
                 '61.8%': high - range_size * 0.618,
                 '78.6%': high - range_size * 0.786,
-                '90.0%': high - range_size * 0.9
+                '90.0%': high - range_size * 0.9,
+                '100%': low  # Lowest point of the arc
             }
             # Store the completed arc with its Fibonacci levels
             self.arcs.append({
@@ -115,12 +117,14 @@ class FibonacciAnalyzer:
                 low = self.current_arc['low']
                 range_size = high - low
                 fib_levels = {
+                    '0%': high,  # Highest point of the arc
                     '23.6%': high - range_size * 0.236,
                     '38.2%': high - range_size * 0.382,
                     '50%': high - range_size * 0.5,
                     '61.8%': high - range_size * 0.618,
                     '78.6%': high - range_size * 0.786,
-                    '90.0%': high - range_size * 0.9
+                    '90.0%': high - range_size * 0.9,
+                    '100%': low  # Lowest point of the arc
                 }
                 # Store the completed arc with its Fibonacci levels
                 self.arcs.append({
@@ -150,14 +154,16 @@ class FibonacciAnalyzer:
         low = self.current_arc['low']
         range_size = high - low
 
-        # Fibonacci levels for the current arc
+        # Fibonacci levels for the current arc, including 0% and 100%
         self.fib_levels = {
+            '0%': high,  # Highest point of the arc
             '23.6%': high - range_size * 0.236,
             '38.2%': high - range_size * 0.382,
             '50%': high - range_size * 0.5,
             '61.8%': high - range_size * 0.618,
             '78.6%': high - range_size * 0.786,
-            '90.0%': high - range_size * 0.9
+            '90.0%': high - range_size * 0.9,
+            '100%': low  # Lowest point of the arc
         }
 
     def get_current_levels(self):

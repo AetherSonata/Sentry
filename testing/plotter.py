@@ -305,6 +305,16 @@ class PricePlotter:
             time (list): List of time indices.
             start_position (int): The starting index of the sliced data (for static mode).
         """
+        # Define colors for each Fibonacci level (excluding 0% and 100%)
+        fib_colors = {
+            '23.6%': 'red',
+            '38.2%': 'orange',
+            '50%': 'green',
+            '61.8%': 'blue',
+            '78.6%': 'purple',
+            '90.0%': 'magenta'
+        }
+
         # Get all completed arcs
         arcs = self.trading_engine.metric_collector.fibonacci_analyzer.get_all_arcs()
         print(f"Number of completed arcs: {len(arcs)}")
@@ -323,9 +333,11 @@ class PricePlotter:
             if 0 <= start_index < len(time) and 0 <= end_index < len(time):
                 # Draw horizontal lines for each Fibonacci level
                 for level, price in fib_levels.items():
+                    # Use black for 0% and 100%, otherwise use the defined color
+                    color = 'black' if level in ['0%', '100%'] else fib_colors.get(level, 'purple')
                     label = f'Fib {level}' if level not in labeled_levels else None
                     self.ax_fib.hlines(y=price, xmin=time[start_index], xmax=time[end_index],
-                                      color='purple', linestyle='--', alpha=0.5, label=label)
+                                    color=color, linestyle='--', alpha=0.5, label=label)
                     if label:
                         labeled_levels.add(level)
 
@@ -338,9 +350,11 @@ class PricePlotter:
 
             if 0 <= start_index < len(time) and 0 <= end_index < len(time):
                 for level, price in fib_levels.items():
+                    # Use black for 0% and 100%, otherwise use the defined color
+                    color = 'black' if level in ['0%', '100%'] else fib_colors.get(level, 'purple')
                     label = f'Fib {level}' if level not in labeled_levels else None
                     self.ax_fib.hlines(y=price, xmin=time[start_index], xmax=time[end_index],
-                                      color='purple', linestyle='--', alpha=0.5, label=label)
+                                    color=color, linestyle='--', alpha=0.5, label=label)
                     if label:
                         labeled_levels.add(level)
 
