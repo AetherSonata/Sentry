@@ -71,11 +71,11 @@ class MetricCollector:
         # )
 
         self.confidence_calculator.settings.set_parameters(                
-            "key_zone_1", alpha=0.25, threshold=0.05, decay_rate=0.35     # Green Zone 1 tweaks "SHORT TERM SUPPORT"
+            "key_zone_1", alpha=0.25, threshold=0.05, decay_rate=0.45     # Green Zone 1 tweaks "SHORT TERM SUPPORT"
         )
 
         self.confidence_calculator.settings.set_parameters(                
-            "key_zone_2", alpha=0.2, threshold=0.05, decay_rate=0.35     # Red Zone 2 tweaks "SHORT TERM WEAK RESISTANCE"
+            "key_zone_2", alpha=0.2, threshold=0.05, decay_rate=0.45     # Red Zone 2 tweaks "SHORT TERM WEAK RESISTANCE"
         )
 
         # self.confidence_calculator.settings.set_parameters(                
