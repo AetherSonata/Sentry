@@ -10,6 +10,7 @@ import random
 import time
 
 REFRESH_INTERVAL = "5m"
+INDICATOR_WINDOW = 80
 FETCHING_SPAN_IN_DAYS = 200
 OHLCV = False
 RAW_DATA_PATH = "historical_data/"
@@ -21,10 +22,12 @@ async def fetch_new_data_point(token):
 def process_historical_data(args):
     interval, historical_data, testing_mode, start_idx, end_idx = args
     engine = TradingEngine(interval, historical_data[:start_idx])
+    plotter = PricePlotter(engine)
     
     if testing_mode:
         for i in range(start_idx, end_idx if end_idx is not None else len(historical_data)):
             engine.add_new_price_point(historical_data[i])
+            plotter.plot_live()
         point_finder = PointFinder(engine.metric_collector.metrics)
         point_finder.evaluate_zone_settings(price_increase=1.5, price_decrease=0.5)
         targets = point_finder.find_all_significant_price_increases(price_increase=1.5)
