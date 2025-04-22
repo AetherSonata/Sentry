@@ -94,7 +94,12 @@ async def initialize_token_environment(testing_mode, token, wallet):
         print(f"Analyzed {(len(tradingEngine.metric_collector.metrics) * get_interval_in_minutes(REFRESH_INTERVAL)) / 60} hours of data for {token}")
         plotter = PricePlotter(tradingEngine)
         plotter.add_backtesting_points(targets, similars_index)
-        plotter.plot_static()
+        try:
+            plotter.plot_static()
+        except Exception as e:
+            print(e)
+
+        # plotter.plot_live()  # only for testing implementation in this way. TODO: change that shit!
     else:
         # Start live monitoring as a separate task
         await live_monitoring(token, tradingEngine)

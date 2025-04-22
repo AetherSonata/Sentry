@@ -8,7 +8,7 @@ class PricePlotter:
         
         # Initialize figure with five subplots
         plt.ion()
-        self.fig = plt.figure(figsize=(12, 15))
+        self.fig = plt.figure(figsize=(12, 15))  # Reduced width back to 12
         
         # Main price plot (larger)
         self.ax_price = self.fig.add_subplot(511)
@@ -18,16 +18,16 @@ class PricePlotter:
         self.ax_combined = self.fig.add_subplot(513, sharex=self.ax_price)
         # MACD subplot (slim, same size as RSI)
         self.ax_macd = self.fig.add_subplot(514, sharex=self.ax_price)
-        # New Fibonacci levels subplot (slim, below MACD)
+        # Fibonacci levels subplot (larger, below MACD)
         self.ax_fib = self.fig.add_subplot(515, sharex=self.ax_price)
         
-        # Adjust subplot positions
+        # Adjust subplot positions with a smaller left margin
         self.fig.subplots_adjust(hspace=0.3)
-        self.ax_price.set_position([0.1, 0.75, 0.8, 0.2])     # Price: height 0.2 (larger)
-        self.ax_rsi.set_position([0.1, 0.66, 0.8, 0.08])      # RSI: height 0.08 (slim)
-        self.ax_combined.set_position([0.1, 0.44, 0.8, 0.2])  # Combined: height 0.2 (larger)
-        self.ax_macd.set_position([0.1, 0.35, 0.8, 0.08])     # MACD: height 0.08 (slim, matches RSI)
-        self.ax_fib.set_position([0.1, 0.15, 0.8, 0.2])      # Fibonacci: height 0.08 (slim, below MACD)
+        self.ax_price.set_position([0.15, 0.75, 0.75, 0.2])     # Left=0.15, Width=0.75
+        self.ax_rsi.set_position([0.15, 0.66, 0.75, 0.08])      # Left=0.15, Width=0.75
+        self.ax_combined.set_position([0.15, 0.44, 0.75, 0.2])  # Left=0.15, Width=0.75
+        self.ax_macd.set_position([0.15, 0.35, 0.75, 0.08])     # Left=0.15, Width=0.75
+        self.ax_fib.set_position([0.15, 0.15, 0.75, 0.2])       # Left=0.15, Width=0.75
         
         # Backtesting indices (if applicable)
         self.targets_index = None
@@ -341,7 +341,7 @@ class PricePlotter:
                     if label:
                         labeled_levels.add(level)
 
-        # Plot Fibonacci levels for the current arc (if it exists)
+        # Plot Fibonacci levels for the current arc (reverted to current_arc style)
         current_arc = self.trading_engine.metric_collector.fibonacci_analyzer.current_arc
         if current_arc and 'start_index' in current_arc:
             start_index = current_arc['start_index'] - start_position
@@ -357,7 +357,7 @@ class PricePlotter:
                                     color=color, linestyle='--', alpha=0.5, label=label)
                     if label:
                         labeled_levels.add(level)
-
+                        
     def _plot_fibonacci_levels(self, time, metrics, start_position=0):
         """
         Plot the Fibonacci subplot by first plotting the price and then overlaying Fibonacci levels.
@@ -369,29 +369,41 @@ class PricePlotter:
         """
         self._plot_fibonacci_price(time, metrics)
         self._plot_fibonacci_zones(time, start_position)
-        self.ax_fib.legend()
 
     def _customize_plots(self, title):
-        """Apply common styling to all plots"""
+        """Apply common styling to all plots with smaller legends on the left."""
+        # Common legend parameters
+        legend_params = {
+            'loc': 'center left',  # Position the legend on the left side
+            'bbox_to_anchor': (-0.1, 0.5),  # Adjusted to bring legends closer to the plot
+            'fontsize': 6,  # Smaller font size (was 'small', now 6)
+            'frameon': True,  # Add a frame around the legend
+            'borderaxespad': 0.,  # Reduce padding between the legend and the plot
+            'labelspacing': 0.2,  # Reduce spacing between legend entries
+            'handlelength': 1.0,  # Shorten the legend handles
+            'handletextpad': 0.4  # Reduce padding between handle and text
+        }
+
+        # Price subplot
         self.ax_price.set_ylabel('Price')
         self.ax_price.set_title(title)
-        self.ax_price.legend()
+        self.ax_price.legend(**legend_params)
         self.ax_price.grid(True, linestyle='--', alpha=0.7)
-        
+
+        # RSI subplot
         self.ax_rsi.set_ylabel('RSI')
-        self.ax_rsi.legend()
+        self.ax_rsi.legend(**legend_params)
         self.ax_rsi.grid(True, linestyle='--', alpha=0.7)
         self.ax_rsi.set_ylim(0, 100)
-        
+
+        # Combined subplot
         self.ax_combined.set_ylabel('Price/EMA')
-        self.ax_combined.legend()
+        self.ax_combined.legend(**legend_params)
         self.ax_combined.grid(True, linestyle='--', alpha=0.7)
-        
+
+        # MACD subplot
         self.ax_macd.set_ylabel('MACD')
-        self.ax_macd.legend()
+        self.ax_macd.legend(**legend_params)
         self.ax_macd.grid(True, linestyle='--', alpha=0.7)
-        
-        self.ax_fib.set_xlabel('Time (index)')
-        self.ax_fib.set_ylabel('Price/Fib Levels')
-        self.ax_fib.legend()
-        self.ax_fib.grid(True, linestyle='--', alpha=0.7)
+
+        # Fibonacci

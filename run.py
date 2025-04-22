@@ -24,7 +24,12 @@ TEST_TOKENS = [
                     # "FZLJm7M2vmHuuEqtRu96xLXP9NrHyhZYebbQBdqqpump".
 
                     #NEW TESTING TOKENS
-                     "FZqqsYT9pQwwaFEQPDPotk4gorwRgxzbVkNAG4MPpump"
+                    #  "FZqqsYT9pQwwaFEQPDPotk4gorwRgxzbVkNAG4MPpump",            # good for testing small size
+                    # "9thi5ggYo5fku97nqtfoM4eEubo4nNU6yE3tyNVApump"   ,           # good for testing after pump 50%+ 
+                    # "6i57Cynr6HSNyM56cVKrZNNeexX6c4iCcaqHh9Y7pump" ,                 # mooning chart to test for risk management
+                    # "8WwEzjn4Vjo3us3G8m14V2nv4JDT1ouwat65uc1Ppump",
+                    # "2wzVMXhLypmP92mXNCq4fuFcd9TCC972AbMfuiH3pump"
+                    "DzvWsz4eLG2i2326E81rFxjTqaa476khgPRpRzrcpump"
                     ]  
 
 
