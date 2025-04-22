@@ -50,12 +50,12 @@ class ZoneAnalyzer:
         Calculate and return one dynamic support and one resistance zone based on zone type.
 
         Args:
-            window: Number of intervals to consider.
+            window: Number of intervals to consider (e.g., 80 for 5-minute candles).
             zone_type: 'short_term', 'mid_term', or 'long_term' to determine tuning factors.
 
         Returns:
             Tuple: (support_zone, resistance_zone), each a dict with 'level' and 'strength',
-                   or empty dicts {} if no zones are found.
+                or empty dicts {} if no zones are found.
         """
         # Define tuning factors for each zone type
         zone_configs: Dict[str, ZoneConfig] = {
@@ -87,9 +87,14 @@ class ZoneAnalyzer:
         if len(prices) < 2:
             return {}, {}
 
+        # Ensure window is valid and slice prices to the last window intervals
+        window = min(window, len(prices))  # Don't exceed available data
+        windowed_prices = prices[-window:] if len(prices) >= window else prices
+        if len(windowed_prices) < 2:
+            return {}, {}
+
         # Calculate dynamic parameters
-        window = max(100, window)
-        mean_price = np.mean(prices[-window:])
+        mean_price = np.mean(windowed_prices)
         cv = self.calculate_std_dev(window)
         
         strong_distance = max(1, int(config.k_strong_distance * window * cv))
@@ -99,24 +104,24 @@ class ZoneAnalyzer:
         min_pivot_rank = max(2, int(config.k_pivot * window))
 
         # Calculate ATH and ATL within the window
-        ath = max(prices[-window:]) if len(prices) >= window else max(prices)
-        atl = min(prices[-window:]) if len(prices) >= window else min(prices)
+        ath = max(windowed_prices)
+        atl = min(windowed_prices)
 
         # Resistance Zones Calculation
-        strong_peaks, _ = find_peaks(prices, distance=strong_distance, prominence=strong_prominence)
-        strong_peak_values = [{'level': prices[i], 'strength': 50.0} for i in strong_peaks]
+        strong_peaks, _ = find_peaks(windowed_prices, distance=strong_distance, prominence=strong_prominence)
+        strong_peak_values = [{'level': windowed_prices[i], 'strength': 50.0} for i in strong_peaks]
         if ath not in [p['level'] for p in strong_peak_values]:
             strong_peak_values.append({'level': ath, 'strength': 100.0})
 
-        peaks, _ = find_peaks(prices, distance=peak_distance)
+        peaks, _ = find_peaks(windowed_prices, distance=peak_distance)
         peak_to_rank = {peak: 0 for peak in peaks}
         for i, curr_peak in enumerate(peaks):
-            curr_price = prices[curr_peak]
+            curr_price = windowed_prices[curr_peak]
             for prev_peak in peaks[:i]:
-                if abs(curr_price - prices[prev_peak]) <= peak_rank_width:
+                if abs(curr_price - windowed_prices[prev_peak]) <= peak_rank_width:
                     peak_to_rank[curr_peak] += 1
         general_resistances = [
-            {'level': prices[peak], 'strength': 10.0 * (rank + 1)}
+            {'level': windowed_prices[peak], 'strength': 10.0 * (rank + 1)}
             for peak, rank in peak_to_rank.items() if rank >= min_pivot_rank
         ]
 
@@ -142,21 +147,21 @@ class ZoneAnalyzer:
         resistance_zone = max(resistance_zones, key=lambda x: x['strength'], default={})
 
         # Support Zones Calculation
-        neg_prices = [-p for p in prices]
+        neg_prices = [-p for p in windowed_prices]  # Use windowed prices
         strong_troughs, _ = find_peaks(neg_prices, distance=strong_distance, prominence=strong_prominence)
-        strong_trough_values = [{'level': prices[i], 'strength': 50.0} for i in strong_troughs]
+        strong_trough_values = [{'level': windowed_prices[i], 'strength': 50.0} for i in strong_troughs]
         if atl not in [p['level'] for p in strong_trough_values]:
             strong_trough_values.append({'level': atl, 'strength': 100.0})
 
         troughs, _ = find_peaks(neg_prices, distance=peak_distance)
         trough_to_rank = {trough: 0 for trough in troughs}
         for i, curr_trough in enumerate(troughs):
-            curr_price = prices[curr_trough]
+            curr_price = windowed_prices[curr_trough]
             for prev_trough in troughs[:i]:
-                if abs(curr_price - prices[prev_trough]) <= peak_rank_width:
+                if abs(curr_price - windowed_prices[prev_trough]) <= peak_rank_width:
                     trough_to_rank[curr_trough] += 1
         general_supports = [
-            {'level': prices[trough], 'strength': 10.0 * (rank + 1)}
+            {'level': windowed_prices[trough], 'strength': 10.0 * (rank + 1)}
             for trough, rank in trough_to_rank.items() if rank >= min_pivot_rank
         ]
 

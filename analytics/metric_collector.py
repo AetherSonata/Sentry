@@ -44,7 +44,7 @@ class MetricCollector:
         current_price = self.price_data[-1]["value"]
 
         # Calculate window sizes
-        quarter_window = max(50, len(self.price_data) // 4)  # Short-term
+        quarter_window = 120  # Short-term
         half_window = max(50, len(self.price_data) // 2)     # Mid-term
         three_quarters_window = max(200, len(self.price_data) // 4 * 3)  # Mid-term
         full_window = max(200, len(self.price_data))          # Long-term
@@ -59,28 +59,28 @@ class MetricCollector:
         )
 
         # Mid-term zones (balanced intraday and swing)
-        self.key_zone_3, self.key_zone_4 = self.zone_analyzer.get_dynamic_zones(
-            window=half_window,
-            zone_type="mid_term"
-        )
+        # self.key_zone_3, self.key_zone_4 = self.zone_analyzer.get_dynamic_zones(
+        #     window=half_window,
+        #     zone_type="mid_term"
+        # )
 
-        # Long-term zones (swing, significant moves)
-        self.key_zone_5, self.key_zone_6 = self.zone_analyzer.get_dynamic_zones(
-            window=four_fifth_window,
-            zone_type="long_term"
-        )
-
-        # self.confidence_calculator.settings.set_parameters(                
-        #     "key_zone_1", alpha=0.25, threshold=0.11, decay_rate=0.15     # Green Zone 1 tweaks "SHORT TERM SUPPORT"
+        # # Long-term zones (swing, significant moves)
+        # self.key_zone_5, self.key_zone_6 = self.zone_analyzer.get_dynamic_zones(
+        #     window=four_fifth_window,
+        #     zone_type="long_term"
         # )
 
         self.confidence_calculator.settings.set_parameters(                
-            "key_zone_2", alpha=0.2, threshold=0.15, decay_rate=0.15     # Red Zone 2 tweaks "SHORT TERM WEAK RESISTANCE"
+            "key_zone_1", alpha=0.25, threshold=0.05, decay_rate=0.35     # Green Zone 1 tweaks "SHORT TERM SUPPORT"
         )
 
         self.confidence_calculator.settings.set_parameters(                
-            "key_zone_5", alpha=0.15, threshold=0.30, decay_rate=0.08     # Brown Zone 5 tweaks "STRONG SUPPORT"
+            "key_zone_2", alpha=0.2, threshold=0.05, decay_rate=0.35     # Red Zone 2 tweaks "SHORT TERM WEAK RESISTANCE"
         )
+
+        # self.confidence_calculator.settings.set_parameters(                
+        #     "key_zone_5", alpha=0.15, threshold=0.30, decay_rate=0.08     # Brown Zone 5 tweaks "STRONG SUPPORT"
+        # )
 
 
         time_features = get_time_features(self.price_data[-1]["unixTime"])  # Corrected to use last price data point
