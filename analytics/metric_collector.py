@@ -49,7 +49,7 @@ class MetricCollector:
 
         # Calculate window sizes
         short_window = 120  # Short-term 5 min interval
-        medium_window = 60  # Mid-term 1 hour interval
+        medium_window = 10  # Mid-term 1 hour interval
 
 
         # Short-term zones (intraday, quick moves)

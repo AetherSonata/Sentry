@@ -68,11 +68,11 @@ class ZoneAnalyzer:
                 interval_in_minutes=5  # 5m
             ),
             "mid_term": ZoneConfig(
-                k_strong_distance=0.1,
-                k_prominence=0.1,
-                k_peak_distance=0.2,
-                k_width=0.01,
-                k_pivot=0.0125,
+                k_strong_distance=0.15,  # Adjusted to allow more strong peaks
+                k_prominence=0.02,      # Reduced to detect less prominent peaks
+                k_peak_distance=0.05,   # Reduced to allow closer general peaks
+                k_width=0.05,           # Increased to widen binning range
+                k_pivot=0.005,          # Reduced to lower the pivot rank threshold
                 interval_in_minutes=60  # 1h
             ),
             "long_term": ZoneConfig(
