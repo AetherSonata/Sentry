@@ -26,8 +26,11 @@ class TradingEngine:
         
 
     def check_for_action(self):
-        self.metric_collector.add_new_price_point_and_calculate_metrics(self.price_data[-1])
-        
+        try:
+            self.metric_collector.add_new_price_point_and_calculate_metrics(self.price_data[-1])
+        except IndexError:
+            return
+
 
     def check_if_buy_signal(self):
         # wait for the first live indexes before calculating

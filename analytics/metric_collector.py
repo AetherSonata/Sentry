@@ -5,6 +5,11 @@ from analytics.time_utils import get_interval_in_minutes, get_time_features, cal
 from analytics.fibonacci_analyzer import FibonacciAnalyzer
 from interpretation.confidence import ConfidenceCalculator
 from analytics.zones import ZoneAnalyzer
+from collections import defaultdict
+from typing import Dict, List, Tuple
+from datetime import datetime
+from utils import interval_aggregator
+import pandas as pd
 
 class MetricCollector:
     def __init__(self, interval):
@@ -20,8 +25,9 @@ class MetricCollector:
         self.key_zone_5 = []
         self.key_zone_6 = []
 
+        self.interval_data_aggregator = interval_aggregator.IntervalDataAggregator(self)
         self.indicator_analyzer = IndicatorAnalyzer(self)
-        self.chart_analyzer = ChartAnalyzer(interval)
+        # self.chart_analyzer = ChartAnalyzer(interval)
         self.price_analyzer = PriceAnalytics()
         self.fibonacci_analyzer = FibonacciAnalyzer(self)
         self.zone_analyzer = ZoneAnalyzer(self)
@@ -31,56 +37,39 @@ class MetricCollector:
                                                           decay_rate=0.05)
         self.confidence_settings = self.confidence_calculator
 
-
-
     def add_new_price_point_and_calculate_metrics(self, new_price_point):
         self.price_data.append(new_price_point)
-        self.chart_analyzer.append_price_data(new_price_point)
+        self.interval_data_aggregator.update_interval_data(new_price_point, ohlcv=False) # add mimicked OHLCV data to interval_price_data
+        # self.chart_analyzer.append_price_data(new_price_point)
         self.price_analyzer.append(new_price_point)
         self.metrics.append(self.collect_all_metrics_for_current_point(len(self.price_data) - 1))
-        
+    
 
     def collect_all_metrics_for_current_point(self, i):
         current_price = self.price_data[-1]["value"]
 
+        print(i)
+
         # Calculate window sizes
-        quarter_window = 120  # Short-term
-        half_window = max(50, len(self.price_data) // 2)     # Mid-term
-        three_quarters_window = max(200, len(self.price_data) // 4 * 3)  # Mid-term
-        full_window = max(200, len(self.price_data))          # Long-term
-        #4/5th of the data
-        four_fifth_window = max(200, len(self.price_data) // 5 * 4)  # Mid-term
+        short_window = 120  # Short-term 5 min interval
+        medium_window = 120  # Mid-term 1 hour interval
 
 
         # Short-term zones (intraday, quick moves)
         self.key_zone_1, self.key_zone_2 = self.zone_analyzer.get_dynamic_zones(
-            window=quarter_window,
-            zone_type="short_term"
+            window=short_window,
+            zone_type="short_term",
+            # interval_in_minutes = 5
         )
 
-        # Mid-term zones (balanced intraday and swing)
-        # self.key_zone_3, self.key_zone_4 = self.zone_analyzer.get_dynamic_zones(
-        #     window=half_window,
-        #     zone_type="mid_term"
-        # )
-
-        # # Long-term zones (swing, significant moves)
-        # self.key_zone_5, self.key_zone_6 = self.zone_analyzer.get_dynamic_zones(
-        #     window=four_fifth_window,
-        #     zone_type="long_term"
-        # )
 
         self.confidence_calculator.settings.set_parameters(                
             "key_zone_1", alpha=0.25, threshold=0.05, decay_rate=0.45     # Green Zone 1 tweaks "SHORT TERM SUPPORT"
         )
 
         self.confidence_calculator.settings.set_parameters(                
-            "key_zone_2", alpha=0.2, threshold=0.05, decay_rate=0.45     # Red Zone 2 tweaks "SHORT TERM WEAK RESISTANCE"
+            "key_zone_2", alpha=0.2, threshold=0.05, decay_rate=0.45     # Red Zone 2 tweaks "SHORT TERM RESISTANCE"
         )
-
-        # self.confidence_calculator.settings.set_parameters(                
-        #     "key_zone_5", alpha=0.15, threshold=0.30, decay_rate=0.08     # Brown Zone 5 tweaks "STRONG SUPPORT"
-        # )
 
 
         time_features = get_time_features(self.price_data[-1]["unixTime"])  # Corrected to use last price data point
@@ -193,10 +182,10 @@ class MetricCollector:
             "key_zone_5": self.key_zone_5,
             "key_zone_6": self.key_zone_6,
             "token_age": calculate_token_age(self.price_data) / 1440,
-            "peak_distance": self.chart_analyzer.calculate_peak_distance(),
-            "drawdown_tight": self.chart_analyzer.calculate_drawdown(3, 288)["short"],
-            "drawdown_short": self.chart_analyzer.calculate_drawdown(12, 288)["short"],
-            "drawdown_long": self.chart_analyzer.calculate_drawdown(12, 288)["long"],
+            # "peak_distance": self.chart_analyzer.calculate_peak_distance(),
+            # "drawdown_tight": self.chart_analyzer.calculate_drawdown(3, 288)["short"],
+            # "drawdown_short": self.chart_analyzer.calculate_drawdown(12, 288)["short"],
+            # "drawdown_long": self.chart_analyzer.calculate_drawdown(12, 288)["long"],
             "zone_confidence": self.confidence_calculator.calculate_zone_confidence(current_price),
             "zone_confidence_slope": self.confidence_calculator.calculate_confidence_slope(),      
             "time": {

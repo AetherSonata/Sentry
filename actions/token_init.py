@@ -101,8 +101,6 @@ async def initialize_token_environment(testing_mode, token, wallet):
             plotter.plot_static()
         except Exception as e:
             print(e)
-
-        # plotter.plot_live()  # only for testing implementation in this way. TODO: change that shit!
     else:
         # Start live monitoring as a separate task
         await live_monitoring(token, tradingEngine)
