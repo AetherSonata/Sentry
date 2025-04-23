@@ -992,6 +992,21 @@ python-dateutil = ">=2.7"
 dev = ["meson-python (>=0.13.1,<0.17.0)", "pybind11 (>=2.13.2,!=2.13.3)", "setuptools (>=64)", "setuptools_scm (>=7)"]
 
 [[package]]
+name = "mplfinance"
+version = "0.12.10b0"
+description = "Utilities for the visualization, and visual analysis, of financial data"
+optional = false
+python-versions = "*"
+files = [
+    {file = "mplfinance-0.12.10b0-py3-none-any.whl", hash = "sha256:76d3b095f05ff35de730751649de063bea4064d0c49b21b6182c82997a7f52bb"},
+    {file = "mplfinance-0.12.10b0.tar.gz", hash = "sha256:7da150b5851aa5119ad6e06b55e48338b619bb6773f1b85df5de67a5ffd917bf"},
+]
+
+[package.dependencies]
+matplotlib = "*"
+pandas = "*"
+
+[[package]]
 name = "multidict"
 version = "6.2.0"
 description = "multidict implementation"
@@ -1956,4 +1971,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "5e22c67a6d066a372b2b64fe157ce48d31c8dbab74635ace23817e7d2ee70512"
+content-hash = "b53c74b276c6f2a575c0077dfa4ea489abe8d924e466242a95da16902afa93f4"

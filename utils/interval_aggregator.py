@@ -1,7 +1,5 @@
-from analytics.time_utils import get_interval_in_minutes
 from collections import defaultdict
 from typing import Dict, List
-from datetime import datetime
 import pandas as pd
 
 class IntervalDataAggregator:
@@ -13,10 +11,7 @@ class IntervalDataAggregator:
             metrics_collector: Instance of MetricCollector, providing base interval and other attributes.
         """
         self.metrics_collector = metrics_collector
-        self.base_interval = metrics_collector.interval
-        self.base_interval_in_minutes = get_interval_in_minutes(self.base_interval)
-        if self.base_interval_in_minutes is None:
-            raise ValueError(f"Invalid base interval: {self.base_interval}")
+        self.base_interval_in_minutes = metrics_collector.interval_in_minutes
 
         # Interval-based OHLCV data
         self.interval_price_data = defaultdict(list)  # {interval_minutes: [{'timestamp', 'open', 'high', 'low', 'close', 'volume'}, ...]}
@@ -55,11 +50,11 @@ class IntervalDataAggregator:
         if self.target_intervals is None:
             self.initialize_intervals()
 
-        # Normalize price point to OHLCV format
-        timestamp = datetime.fromtimestamp(price_point['unixTime'])
+        # Normalize price point to OHLCV format with Unix timestamp
+        unix_time = price_point['unixTime']  # Already in Unix time (seconds)
         if ohlcv:
             candle = {
-                'timestamp': timestamp,
+                'timestamp': unix_time,
                 'open': price_point['open'],
                 'high': price_point['high'],
                 'low': price_point['low'],
@@ -68,7 +63,7 @@ class IntervalDataAggregator:
             }
         else:
             candle = {
-                'timestamp': timestamp,
+                'timestamp': unix_time,
                 'open': price_point['value'],
                 'high': price_point['value'],
                 'low': price_point['value'],
@@ -88,20 +83,17 @@ class IntervalDataAggregator:
             # Determine if the candle is complete based on timestamp
             if self.partial_candles[interval_minutes]:
                 latest_ts = self.partial_candles[interval_minutes][-1]['timestamp']
-                # Calculate the start of the current interval
-                interval_start = latest_ts - pd.Timedelta(minutes=latest_ts.minute % interval_minutes,
-                                                        seconds=latest_ts.second,
-                                                        microseconds=latest_ts.microsecond)
+                # Calculate the start of the current interval (in Unix time)
+                interval_seconds = interval_minutes * 60
+                interval_start = (latest_ts // interval_seconds) * interval_seconds
                 # Check if the next price point would fall into a new interval
-                next_ts = latest_ts + pd.Timedelta(minutes=self.base_interval_in_minutes)
-                next_interval_start = next_ts - pd.Timedelta(minutes=next_ts.minute % interval_minutes,
-                                                           seconds=next_ts.second,
-                                                           microseconds=next_ts.microsecond)
+                next_ts = latest_ts + (self.base_interval_in_minutes * 60)
+                next_interval_start = (next_ts // interval_seconds) * interval_seconds
                 if interval_start != next_interval_start:
                     # Complete the candle
                     df = pd.DataFrame(self.partial_candles[interval_minutes])
                     new_candle = {
-                        'timestamp': interval_start + pd.Timedelta(minutes=interval_minutes),  # End of interval
+                        'timestamp': interval_start,  # Start of interval (Unix time)
                         'open': df['open'].iloc[0],
                         'high': df['high'].max(),
                         'low': df['low'].min(),
@@ -123,7 +115,7 @@ class IntervalDataAggregator:
             window: Number of candles to return (optional).
 
         Returns:
-            List of dicts with OHLCV data.
+            List of dicts with OHLCV data (timestamps in Unix time).
         """
         data = self.interval_price_data.get(interval_minutes, [])
         if window:
@@ -139,8 +131,9 @@ class IntervalDataAggregator:
         """
         if not self.interval_price_data[self.base_interval_in_minutes]:
             return self.base_interval_in_minutes
-        age_minutes = (self.interval_price_data[self.base_interval_in_minutes][-1]['timestamp'] -
-                       self.interval_price_data[self.base_interval_in_minutes][0]['timestamp']).total_seconds() / 60
+        age_seconds = (self.interval_price_data[self.base_interval_in_minutes][-1]['timestamp'] -
+                       self.interval_price_data[self.base_interval_in_minutes][0]['timestamp'])
+        age_minutes = age_seconds / 60
         available_intervals = sorted(self.target_intervals + [self.base_interval_in_minutes, 1440, 10080, 43200])
         for interval in reversed(available_intervals):
             if age_minutes >= 2 * interval:  # At least 2 candles

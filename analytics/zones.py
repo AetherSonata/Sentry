@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.signal import find_peaks
 from dataclasses import dataclass
-from typing import Dict, Tuple
+from typing import Dict, Tuple, List
 
 @dataclass
 class ZoneConfig:
@@ -11,38 +11,38 @@ class ZoneConfig:
     k_peak_distance: float
     k_width: float
     k_pivot: float
+    interval_in_minutes: int  # Added interval for specific OHLCV data
 
 class ZoneAnalyzer:
-    def __init__(self, metrics_analyzer):
+    def __init__(self, metric_collector):
         """
-        Initialize the ZoneAnalyzer with a metrics_analyzer object.
+        Initialize the ZoneAnalyzer with a metric_collector object.
 
         Args:
-            metrics_analyzer: An object containing price_data, a list of dictionaries
-                             with a "value" key representing price at each interval.
+            metric_collector: An object containing interval_data_aggregator with OHLCV data.
         """
-        self.metrics_analyzer = metrics_analyzer
+        self.metric_collector = metric_collector
         self.support_zones = []  # List of lists of zone dicts
         self.resistance_zones = []  # List of lists of zone dicts
 
-    def calculate_std_dev(self, window: int) -> float:
+    def calculate_std_dev(self, window: int, interval_in_minutes: int) -> float:
         """
-        Calculate the coefficient of variation of prices over the window.
+        Calculate the coefficient of variation of close prices over the window for a specific interval.
 
         Args:
-            window: Number of intervals to consider from the end of price data.
+            window: Number of intervals to consider from the end of OHLCV data.
+            interval_in_minutes: Interval in minutes (e.g., 5 for 5m, 60 for 1h).
 
         Returns:
             float: Coefficient of variation (std_dev / mean_price), or 0.3 if insufficient data.
         """
-        prices = [entry["value"] for entry in self.metrics_analyzer.price_data]
+        # Fetch OHLCV data for the specified interval
+        data = self.metric_collector.interval_data_aggregator.get_interval_data(interval_in_minutes, window)
+        prices = [entry["close"] for entry in data]
         if len(prices) < 2:
             return 0.3
-        windowed_prices = prices[-window:] if len(prices) >= window else prices
-        if len(windowed_prices) <= 1:
-            return 0.3
-        std_dev = np.std(windowed_prices, ddof=1)
-        mean_price = np.mean(windowed_prices)
+        std_dev = np.std(prices, ddof=1)
+        mean_price = np.mean(prices)
         return std_dev / mean_price if mean_price != 0 else 0.3
 
     def get_dynamic_zones(self, window: int, zone_type: str) -> Tuple[Dict, Dict]:
@@ -55,7 +55,7 @@ class ZoneAnalyzer:
 
         Returns:
             Tuple: (support_zone, resistance_zone), each a dict with 'level' and 'strength',
-                or empty dicts {} if no zones are found.
+                or empty dicts {} if no zones are found or insufficient data.
         """
         # Define tuning factors for each zone type
         zone_configs: Dict[str, ZoneConfig] = {
@@ -64,64 +64,77 @@ class ZoneAnalyzer:
                 k_prominence=0.05,
                 k_peak_distance=0.1,
                 k_width=0.1,
-                k_pivot=0.01
+                k_pivot=0.01,
+                interval_in_minutes=5  # 5m
             ),
             "mid_term": ZoneConfig(
                 k_strong_distance=0.1,
                 k_prominence=0.1,
                 k_peak_distance=0.2,
-                k_width=0.1,
-                k_pivot=0.0125
+                k_width=0.01,
+                k_pivot=0.0125,
+                interval_in_minutes=60  # 1h
             ),
             "long_term": ZoneConfig(
                 k_strong_distance=1,
                 k_prominence=0.1,
                 k_peak_distance=0.2,
                 k_width=0.1,
-                k_pivot=0.015
+                k_pivot=0.015,
+                interval_in_minutes=240  # 4h
             )
         }
 
         config = zone_configs.get(zone_type, zone_configs["mid_term"])
-        prices = [entry["value"] for entry in self.metrics_analyzer.price_data]
-        if len(prices) < 2:
+        interval_in_minutes = config.interval_in_minutes
+
+        # Fetch OHLCV data for the specified interval
+        data = self.metric_collector.interval_data_aggregator.get_interval_data(interval_in_minutes, window)
+        if len(data) < 2:
             return {}, {}
 
-        # Ensure window is valid and slice prices to the last window intervals
-        window = min(window, len(prices))  # Don't exceed available data
-        windowed_prices = prices[-window:] if len(prices) >= window else prices
-        if len(windowed_prices) < 2:
+        # Extract high, low, and close prices
+        highs = [entry["high"] for entry in data]
+        lows = [entry["low"] for entry in data]
+        close_prices = [entry["close"] for entry in data]
+
+        # Ensure window is valid
+        window = min(window, len(data))
+        windowed_highs = highs[-window:] if len(highs) >= window else highs
+        windowed_lows = lows[-window:] if len(lows) >= window else lows
+        windowed_close_prices = close_prices[-window:] if len(close_prices) >= window else close_prices
+        if len(windowed_highs) < 2:
             return {}, {}
 
         # Calculate dynamic parameters
-        mean_price = np.mean(windowed_prices)
-        cv = self.calculate_std_dev(window)
-        
+        mean_price = np.mean(windowed_close_prices)
+        cv = self.calculate_std_dev(window, interval_in_minutes)
+
         strong_distance = max(1, int(config.k_strong_distance * window * cv))
         strong_prominence = max(0.01, config.k_prominence * mean_price * cv)
         peak_distance = max(1, int(config.k_peak_distance * window * cv))
-        peak_rank_width = max(1, int(config.k_width * mean_price * cv))
+        peak_rank_width = max(0.0001, config.k_width * mean_price * cv)  # Use float for precision
         min_pivot_rank = max(2, int(config.k_pivot * window))
 
         # Calculate ATH and ATL within the window
-        ath = max(windowed_prices)
-        atl = min(windowed_prices)
+        ath = max(windowed_highs)
+        atl = min(windowed_lows)
 
-        # Resistance Zones Calculation
-        strong_peaks, _ = find_peaks(windowed_prices, distance=strong_distance, prominence=strong_prominence)
-        strong_peak_values = [{'level': windowed_prices[i], 'strength': 50.0} for i in strong_peaks]
+        # Resistance Zones Calculation (using highs)
+        strong_peaks, _ = find_peaks(windowed_highs, distance=strong_distance, prominence=strong_prominence)
+        strong_peak_values = [{'level': windowed_highs[i], 'strength': 50.0} for i in strong_peaks]
         if ath not in [p['level'] for p in strong_peak_values]:
             strong_peak_values.append({'level': ath, 'strength': 100.0})
 
-        peaks, _ = find_peaks(windowed_prices, distance=peak_distance)
+        peaks, _ = find_peaks(windowed_highs, distance=peak_distance)
         peak_to_rank = {peak: 0 for peak in peaks}
         for i, curr_peak in enumerate(peaks):
-            curr_price = windowed_prices[curr_peak]
+            curr_price = windowed_highs[curr_peak]
             for prev_peak in peaks[:i]:
-                if abs(curr_price - windowed_prices[prev_peak]) <= peak_rank_width:
+                if abs(curr_price - windowed_highs[prev_peak]) <= peak_rank_width:
                     peak_to_rank[curr_peak] += 1
         general_resistances = [
-            {'level': windowed_prices[peak], 'strength': 10.0 * (rank + 1)}
+            {'level': windowed_highs[peak], 'strength': 10.0 * (rank + 1)}
             for peak, rank in peak_to_rank.items() if rank >= min_pivot_rank
         ]
 
@@ -146,22 +159,22 @@ class ZoneAnalyzer:
         # Select the resistance zone with the highest strength
         resistance_zone = max(resistance_zones, key=lambda x: x['strength'], default={})
 
-        # Support Zones Calculation
-        neg_prices = [-p for p in windowed_prices]  # Use windowed prices
-        strong_troughs, _ = find_peaks(neg_prices, distance=strong_distance, prominence=strong_prominence)
-        strong_trough_values = [{'level': windowed_prices[i], 'strength': 50.0} for i in strong_troughs]
+        # Support Zones Calculation (using lows)
+        neg_lows = [-p for p in windowed_lows]
+        strong_troughs, _ = find_peaks(neg_lows, distance=strong_distance, prominence=strong_prominence)
+        strong_trough_values = [{'level': windowed_lows[i], 'strength': 50.0} for i in strong_troughs]
         if atl not in [p['level'] for p in strong_trough_values]:
             strong_trough_values.append({'level': atl, 'strength': 100.0})
 
-        troughs, _ = find_peaks(neg_prices, distance=peak_distance)
+        troughs, _ = find_peaks(neg_lows, distance=peak_distance)
         trough_to_rank = {trough: 0 for trough in troughs}
         for i, curr_trough in enumerate(troughs):
-            curr_price = windowed_prices[curr_trough]
+            curr_price = windowed_lows[curr_trough]
             for prev_trough in troughs[:i]:
-                if abs(curr_price - windowed_prices[prev_trough]) <= peak_rank_width:
+                if abs(curr_price - windowed_lows[prev_trough]) <= peak_rank_width:
                     trough_to_rank[curr_trough] += 1
         general_supports = [
-            {'level': windowed_prices[trough], 'strength': 10.0 * (rank + 1)}
+            {'level': windowed_lows[trough], 'strength': 10.0 * (rank + 1)}
             for trough, rank in trough_to_rank.items() if rank >= min_pivot_rank
         ]
 
@@ -188,7 +201,7 @@ class ZoneAnalyzer:
 
         return support_zone, resistance_zone
 
-    def get_zones(self, strong_distance=60, strong_prominence=20, peak_distance=10, 
-                  peak_rank_width=5, min_pivot_rank=3, window=100):
-        """Original method retained for compatibility."""
-        return self.get_dynamic_zones(window, "mid_term")
+    # def get_zones(self, strong_distance=60, strong_prominence=20, peak_distance=10,
+    #               peak_rank_width=5, min_pivot_rank=3, window=100) -> Tuple[Dict, Dict]:
+    #     """Original method retained for compatibility."""
+    #     return self.get_dynamic_zones(window, "mid_term")

@@ -5,11 +5,8 @@ from analytics.time_utils import get_interval_in_minutes, get_time_features, cal
 from analytics.fibonacci_analyzer import FibonacciAnalyzer
 from interpretation.confidence import ConfidenceCalculator
 from analytics.zones import ZoneAnalyzer
-from collections import defaultdict
-from typing import Dict, List, Tuple
-from datetime import datetime
 from utils import interval_aggregator
-import pandas as pd
+
 
 class MetricCollector:
     def __init__(self, interval):
@@ -52,15 +49,20 @@ class MetricCollector:
 
         # Calculate window sizes
         short_window = 120  # Short-term 5 min interval
-        medium_window = 120  # Mid-term 1 hour interval
+        medium_window = 60  # Mid-term 1 hour interval
 
 
         # Short-term zones (intraday, quick moves)
         self.key_zone_1, self.key_zone_2 = self.zone_analyzer.get_dynamic_zones(
             window=short_window,
             zone_type="short_term",
-            # interval_in_minutes = 5
         )
+
+        if len(self.interval_data_aggregator.interval_price_data[60]) >= 2:
+            self.key_zone_3, self.key_zone_4 = self.zone_analyzer.get_dynamic_zones(
+                window=medium_window,
+                zone_type="mid_term",
+            )
 
 
         self.confidence_calculator.settings.set_parameters(                
@@ -70,6 +72,17 @@ class MetricCollector:
         self.confidence_calculator.settings.set_parameters(                
             "key_zone_2", alpha=0.2, threshold=0.05, decay_rate=0.45     # Red Zone 2 tweaks "SHORT TERM RESISTANCE"
         )
+
+
+        self.confidence_calculator.settings.set_parameters(                
+            "key_zone_3", alpha=0.2, threshold=0.05, decay_rate=0.45     # Green Zone 3 tweaks "SHORT TERM SUPPORT"
+        )
+
+        self.confidence_calculator.settings.set_parameters(                
+            "key_zone_4", alpha=0.2, threshold=0.05, decay_rate=0.45     # Red Zone 4 tweaks "SHORT TERM RESISTANCE"
+        )
+
+
 
 
         time_features = get_time_features(self.price_data[-1]["unixTime"])  # Corrected to use last price data point

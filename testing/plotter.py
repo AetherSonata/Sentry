@@ -407,3 +407,6 @@ class PricePlotter:
         self.ax_macd.grid(True, linestyle='--', alpha=0.7)
 
         # Fibonacci
+        self.ax_fib.set_ylabel('Fibonacci Levels')
+        self.ax_fib.legend(**legend_params)
+        self.ax_fib.grid(True, linestyle='--', alpha=0.7)
