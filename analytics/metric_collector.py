@@ -50,7 +50,7 @@ class MetricCollector:
         # Calculate window sizes
         short_window = 120  # Short-term 5 min interval
         medium_window = 10  # Mid-term 1 hour interval
-
+        long_window = 5  # Long-term 4 hour interval
 
         # Short-term zones (intraday, quick moves)
         self.key_zone_1, self.key_zone_2 = self.zone_analyzer.get_dynamic_zones(
@@ -64,6 +64,12 @@ class MetricCollector:
                 zone_type="mid_term",
             )
 
+        if len(self.interval_data_aggregator.interval_price_data[240]) >= 2:
+            self.key_zone_3, self.key_zone_4 = self.zone_analyzer.get_dynamic_zones(
+                window=long_window,
+                zone_type="long_term",
+            )            
+
 
         self.confidence_calculator.settings.set_parameters(                
             "key_zone_1", alpha=0.25, threshold=0.05, decay_rate=0.45     # Green Zone 1 tweaks "SHORT TERM SUPPORT"
@@ -75,12 +81,22 @@ class MetricCollector:
 
 
         self.confidence_calculator.settings.set_parameters(                
-            "key_zone_3", alpha=0.2, threshold=0.05, decay_rate=0.45     # Green Zone 3 tweaks "SHORT TERM SUPPORT"
+            "key_zone_3", alpha=0.2, threshold=0.05, decay_rate=0.45     # Green Zone 3 tweaks "MIDTERM SUPPORT"
         )
 
         self.confidence_calculator.settings.set_parameters(                
-            "key_zone_4", alpha=0.2, threshold=0.05, decay_rate=0.45     # Red Zone 4 tweaks "SHORT TERM RESISTANCE"
+            "key_zone_4", alpha=0.2, threshold=0.05, decay_rate=0.45     # Red Zone 4 tweaks "MID TERM RESISTANCE"
         )
+
+
+        self.confidence_calculator.settings.set_parameters(                
+            "key_zone_5", alpha=0.2, threshold=0.05, decay_rate=0.45     # Green Zone 3 tweaks "LONG" TERM SUPPORT"
+        )
+
+        self.confidence_calculator.settings.set_parameters(                
+            "key_zone_6", alpha=0.2, threshold=0.05, decay_rate=0.45     # Red Zone 4 tweaks "LONG TERM RESISTANCE"
+        )
+
 
 
 

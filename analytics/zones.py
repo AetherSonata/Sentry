@@ -76,11 +76,11 @@ class ZoneAnalyzer:
                 interval_in_minutes=60  # 1h
             ),
             "long_term": ZoneConfig(
-                k_strong_distance=1,
-                k_prominence=0.1,
+                k_strong_distance=0.10,
+                k_prominence=0.05,
                 k_peak_distance=0.2,
-                k_width=0.1,
-                k_pivot=0.015,
+                k_width=0.05,
+                k_pivot=0.005,
                 interval_in_minutes=240  # 4h
             )
         }
